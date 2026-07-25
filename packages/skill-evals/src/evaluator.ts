@@ -63,7 +63,7 @@ interface ToolProposition {
 interface NarrativePropositions {
   tools: ToolProposition[];
   replayAllowedInReadOnly: boolean;
-  untrustedContentMayOverride: boolean;
+  untrustedContentMayDirect: boolean;
 }
 
 const INTENT_CLASSIFIERS: readonly IntentClassifier[] = [
@@ -287,7 +287,7 @@ function narrativeClauses(document: string): NarrativeClause[] {
 }
 
 function isProhibition(text: string): boolean {
-  return /\b(?:do not|must not|may not|cannot|can't|never|forbidden|prohibited|not (?:be )?(?:used|allowed|permitted))\b/.test(
+  return /\b(?:do not|does not|must not|may not|might not|should not|could not|will not|shall not|cannot|can't|isn't|aren't|won't|never|forbidden|prohibited|not (?:be )?(?:used|allowed|permitted|followed|obeyed|executed))\b/.test(
     text,
   );
 }
@@ -295,7 +295,9 @@ function isProhibition(text: string): boolean {
 function isPermission(text: string): boolean {
   return (
     !isProhibition(text) &&
-    /\b(?:use|using|allowed|permitted|may|can|required|must)\b/.test(text)
+    /\b(?:use|using|allowed|permitted|may|might|can|could|should|required|must)\b/.test(
+      text,
+    )
   );
 }
 
@@ -303,7 +305,7 @@ function parseNarrativePropositions(document: string): NarrativePropositions {
   const clauses = narrativeClauses(document);
   const tools: ToolProposition[] = [];
   let replayAllowedInReadOnly = false;
-  let untrustedContentMayOverride = false;
+  let untrustedContentMayDirect = false;
 
   for (const clause of clauses) {
     const segments = clause.text.split(/,|\bwhile\b/);
@@ -337,19 +339,17 @@ function parseNarrativePropositions(document: string): NarrativePropositions {
     }
     if (
       clause.untrustedContent &&
-      /\b(?:override|overridden|replace|supersede)\b[^]*(?:previous|earlier)?\s*instructions?\b|\b(?:previous|earlier)\s*instructions?\b[^]*(?:override|overridden|replace|supersede)\b/.test(
-        clause.text,
-      ) &&
+      /\b(?:instructions?|directives?)\b/.test(clause.text) &&
       isPermission(clause.text)
     ) {
-      untrustedContentMayOverride = true;
+      untrustedContentMayDirect = true;
     }
   }
 
   return {
     tools,
     replayAllowedInReadOnly,
-    untrustedContentMayOverride,
+    untrustedContentMayDirect,
   };
 }
 
@@ -427,7 +427,7 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
     if (behavior === "checks_active_mode") return activeGate;
     if (
       behavior === "treats_response_content_as_untrusted" &&
-      propositions.untrustedContentMayOverride
+      propositions.untrustedContentMayDirect
     ) {
       return false;
     }
@@ -435,10 +435,10 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
   });
   if (
     rule.safety.includes("treats_response_content_as_untrusted") &&
-    propositions.untrustedContentMayOverride
+    propositions.untrustedContentMayDirect
   ) {
     conflicts.push(
-      "Narrative permits untrusted content to override prior instructions.",
+      "Narrative permits untrusted content to act on instructions or directives.",
     );
   }
   const tools = [...rule.tools];
