@@ -473,6 +473,18 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: CreateFindingInput,
   ): Promise<MutationEvidence> {
     this.#ready();
+    if (
+      typeof input !== "object" ||
+      input === null ||
+      Array.isArray(input)
+    ) {
+      throw new AgentError(
+        "INVALID_INPUT",
+        "Finding creation input must be a non-null object.",
+        false,
+      );
+    }
+
     const supportedFields = new Set(["title", "description", "requestId"]);
     if (Object.keys(input).some((field) => !supportedFields.has(field))) {
       throw unavailable("Unsupported finding creation fields");

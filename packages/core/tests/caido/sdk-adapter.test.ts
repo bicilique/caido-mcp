@@ -536,6 +536,28 @@ describe("SdkCaidoAdapter", () => {
   });
 
   it.each([
+    ["null", null],
+    ["undefined", undefined],
+    ["primitive", 42],
+    ["array", []],
+  ])(
+    "rejects non-object create input without an incidental TypeError: %s",
+    async (_name, input) => {
+      const { adapter, events } = sdkFixture();
+
+      await expect(
+        Reflect.apply(adapter.createFinding, adapter, [input]),
+      ).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "INVALID_INPUT",
+          retryable: false,
+        }),
+      );
+      expect(events).toEqual([]);
+    },
+  );
+
+  it.each([
     ["listSitemap", (adapter: SdkCaidoAdapter) => adapter.listSitemap(3, 20)],
     ["setIntercept", (adapter: SdkCaidoAdapter) => adapter.setIntercept(true)],
     ["runWorkflow", (adapter: SdkCaidoAdapter) => adapter.runWorkflow("workflow-1")],
