@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import {
@@ -7,10 +8,12 @@ import {
   type ToolDefinition,
 } from "./registry.js";
 import { serializeStructuredResult } from "./serialization/result-content.js";
+import type { ResourceDefinition } from "./resources/types.js";
 
 interface ServerOptions {
   mode: RegistrationMode;
   tools: readonly ToolDefinition[];
+  resources?: readonly ResourceDefinition[];
 }
 
 export function createServer(options: ServerOptions): McpServer {
@@ -48,6 +51,46 @@ export function createServer(options: ServerOptions): McpServer {
           await tool.handler(input as Record<string, unknown>, extra.signal),
         ),
     );
+  }
+
+  for (const resource of options.resources ?? []) {
+    if (resource.kind === "fixed") {
+      server.registerResource(
+        resource.name,
+        resource.uri,
+        {
+          description: resource.description,
+          mimeType: "application/json",
+        },
+        async (uri) => ({
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(await resource.read()),
+            },
+          ],
+        }),
+      );
+    } else {
+      server.registerResource(
+        resource.name,
+        new ResourceTemplate(resource.uriTemplate, { list: undefined }),
+        {
+          description: resource.description,
+          mimeType: "application/json",
+        },
+        async (uri, variables) => ({
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(await resource.read(variables)),
+            },
+          ],
+        }),
+      );
+    }
   }
 
   return server;
