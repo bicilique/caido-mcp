@@ -11,13 +11,19 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:contract": "vitest run --project contract",
+    "test:skill": "vitest run --project skill",
+    "eval:skill": "vitest run --project skill",
+    "generate:tools": "tsx scripts/generate-tool-reference.ts",
+    "check:generated": "vitest run --project contract packages/mcp-server/tests/generated-docs.contract.test.ts",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
     "@vitest/coverage-v8": "4.1.10",
+    "tsx": "4.23.1",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "zod": "4.4.3"
   }
 }

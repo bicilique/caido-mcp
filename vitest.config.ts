@@ -12,6 +12,13 @@ export default defineConfig({
       },
       {
         test: {
+          name: "skill",
+          include: ["packages/skill-evals/tests/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
+        test: {
           name: "contract",
           include: ["packages/*/tests/**/*.contract.test.ts"],
           environment: "node",
