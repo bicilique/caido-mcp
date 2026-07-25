@@ -19,10 +19,13 @@ async function packageDirectories(modules) {
       const scoped = await readdir(path, { withFileTypes: true });
       for (const child of scoped) {
         if (child.isDirectory() || child.isSymbolicLink()) {
-          directories.push(join(path, child.name));
+          const packageDirectory = join(path, child.name);
+          await assertReadableDirectory(packageDirectory);
+          directories.push(packageDirectory);
         }
       }
     } else if (entry.isDirectory() || entry.isSymbolicLink()) {
+      await assertReadableDirectory(path);
       directories.push(path);
     }
   }
@@ -89,9 +92,11 @@ for (const entry of entries.sort((left, right) =>
   left.name.localeCompare(right.name),
 )) {
   if (!entry.isDirectory() || entry.name === "node_modules") continue;
-  const modules = join(store, entry.name, "node_modules");
+  const storeEntry = join(store, entry.name);
+  const modules = join(storeEntry, "node_modules");
   let directories;
   try {
+    await assertReadableDirectory(storeEntry);
     directories = await packageDirectories(modules);
   } catch {
     failures.push("unreadable package directory");

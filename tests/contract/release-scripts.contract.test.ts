@@ -184,4 +184,31 @@ describe("license inventory", () => {
       /cannot read package directory/i,
     );
   }, 15_000);
+
+  it.each(["store-entry", "package"] as const)(
+    "rejects an unreadable %s directory without leaking manifests",
+    async (blockedLevel) => {
+      const store = await mkdtemp(
+        join(tmpdir(), `caido blocked license ${blockedLevel} `),
+      );
+      const marker = `private-${blockedLevel}-license-value`;
+      const storeEntry = join(store, "blocked@1.0.0");
+      const packageDirectory = join(storeEntry, "node_modules", "blocked");
+      await packageFixture(store, "blocked@1.0.0", "blocked", {
+        name: marker,
+        version: "1.0.0",
+        license: "MIT",
+      });
+      const blockedPath =
+        blockedLevel === "store-entry" ? storeEntry : packageDirectory;
+      await chmod(blockedPath, 0o000);
+      const result = await run(tsx, [licenseInventory, "--store", store], root);
+      await chmod(blockedPath, 0o700);
+
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toMatch(/cannot read package directory/i);
+      expect(`${result.stdout}${result.stderr}`).not.toContain(marker);
+    },
+    15_000,
+  );
 });

@@ -20,10 +20,13 @@ async function packageManifestPaths(modules: string): Promise<string[]> {
       const scoped = await readdir(path, { withFileTypes: true });
       for (const child of scoped) {
         if (child.isDirectory() || child.isSymbolicLink()) {
-          paths.push(join(path, child.name, "package.json"));
+          const packageDirectory = join(path, child.name);
+          await assertReadableDirectory(packageDirectory);
+          paths.push(join(packageDirectory, "package.json"));
         }
       }
     } else if (candidate.isDirectory() || candidate.isSymbolicLink()) {
+      await assertReadableDirectory(path);
       paths.push(join(path, "package.json"));
     }
   }
@@ -70,9 +73,11 @@ for (const entry of entries.sort((left, right) =>
   left.name.localeCompare(right.name),
 )) {
   if (!entry.isDirectory() || entry.name === "node_modules") continue;
-  const modules = join(store, entry.name, "node_modules");
+  const storeEntry = join(store, entry.name);
+  const modules = join(storeEntry, "node_modules");
   let paths: string[];
   try {
+    await assertReadableDirectory(storeEntry);
     paths = await packageManifestPaths(modules);
   } catch {
     failures.push("cannot read package directory");
