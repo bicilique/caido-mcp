@@ -155,18 +155,30 @@ describe.skipIf(!enabled)("real Caido localhost E2E", () => {
         }
       ).data.evidence.requestIds;
       expect(replayIds.length).toBeGreaterThan(0);
+      const replayCreatedId = replayIds.find((id) => id !== requestIds[0]);
+      expect(replayCreatedId).toBeDefined();
 
-      const listed = await harness.client.callTool({
-        name: "caido_list_requests",
-        arguments: {
-          direction: "descending",
-          limit: 5,
-        },
-      });
-      expect(listed.structuredContent).toMatchObject({
-        ok: true,
-        data: { items: expect.any(Array) },
-      });
+      for (const evidenceId of [requestIds[0], replayCreatedId!]) {
+        const listed = await harness.client.callTool({
+          name: "caido_list_requests",
+          arguments: {
+            httpql: `req.id.eq:"${evidenceId}"`,
+            direction: "descending",
+            limit: 20,
+          },
+        });
+        expect(listed.structuredContent).toMatchObject({
+          ok: true,
+          data: { items: expect.any(Array) },
+        });
+        const listedIds = (
+          listed.structuredContent as {
+            data: { items: Array<{ id: string }> };
+          }
+        ).data.items.map((item) => item.id);
+        expect(listedIds.length).toBeGreaterThan(0);
+        expect(listedIds).toContain(evidenceId);
+      }
 
       const detail = await harness.client.callTool({
         name: "caido_get_request",

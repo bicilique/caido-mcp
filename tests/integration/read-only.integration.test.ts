@@ -65,6 +65,7 @@ describe("mock Caido read-only integration", () => {
     expect(serialized).toContain("[REDACTED]");
     expect(serialized).not.toContain("integration-secret");
     expect(serialized).not.toContain("binary-secret");
+    expect(serialized).not.toContain("binary-response-secret");
     expect(detail.structuredContent).toMatchObject({
       ok: true,
       data: [
@@ -73,6 +74,15 @@ describe("mock Caido read-only integration", () => {
           request: {
             body: {
               byteLength: expect.any(Number),
+              limit: 4096,
+              truncated: true,
+              text: expect.any(String),
+            },
+          },
+          response: {
+            body: {
+              byteLength: expect.any(Number),
+              contentType: "application/json",
               limit: 4096,
               truncated: true,
               text: expect.any(String),
@@ -88,18 +98,32 @@ describe("mock Caido read-only integration", () => {
               truncated: false,
             },
           },
+          response: {
+            body: {
+              byteLength: expect.any(Number),
+              contentType: "application/octet-stream",
+              truncated: true,
+            },
+          },
         },
       ],
       meta: { untrusted: true, source: "caido_http_traffic" },
     });
-    const bodies = (
+    const messages = (
       detail.structuredContent as {
-        data: Array<{ request: { body: { byteLength: number; text?: string } } }>;
+        data: Array<{
+          request: { body: { byteLength: number; text?: string } };
+          response: { body: { byteLength: number; text?: string } };
+        }>;
       }
-    ).data.map((item) => item.request.body);
-    expect(bodies[0]!.byteLength).toBeGreaterThan(4096);
-    expect(bodies[0]!.text!.length).toBeLessThanOrEqual(4096);
-    expect(bodies[1]).not.toHaveProperty("text");
+    ).data;
+    expect(messages[0]!.request.body.byteLength).toBeGreaterThan(4096);
+    expect(messages[0]!.request.body.text!.length).toBeLessThanOrEqual(4096);
+    expect(messages[1]!.request.body).not.toHaveProperty("text");
+    expect(messages[0]!.response.body.byteLength).toBeGreaterThan(4096);
+    expect(messages[0]!.response.body.text!.length).toBeLessThanOrEqual(4096);
+    expect(messages[1]!.response.body.byteLength).toBeGreaterThan(4096);
+    expect(messages[1]!.response.body).not.toHaveProperty("text");
 
     await harness.close();
     const audit = await readFile(join(directory, "audit.jsonl"), "utf8");
@@ -110,7 +134,7 @@ describe("mock Caido read-only integration", () => {
   it.each([
     ["INVALID_HTTPQL", "INVALID_HTTPQL", false],
     ["UPSTREAM_ERROR", "UPSTREAM_ERROR", true],
-    ["MALFORMED_DATA", "UPSTREAM_ERROR", true],
+    ["MALFORMED_DATA", "UPSTREAM_ERROR", false],
   ] as const)(
     "maps %s to deterministic %s without leaking boundary details",
     async (httpql, code, retryable) => {

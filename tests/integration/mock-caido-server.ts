@@ -40,6 +40,14 @@ function requestNode(
   id: "request-text" | "request-binary",
   includeRaw: boolean,
 ) {
+  const responseText = `{"access_token":"integration-secret","padding":"${"R".repeat(9_000)}"}`;
+  const binaryResponse = new Uint8Array([
+    ...new TextEncoder().encode(
+      "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n\r\n",
+    ),
+    ...new Uint8Array(9_000).fill(7),
+    ...new TextEncoder().encode("binary-response-secret"),
+  ]);
   const textRaw = [
     "GET /account?token=integration-secret HTTP/1.1",
     "Host: 127.0.0.1",
@@ -84,8 +92,8 @@ function requestNode(
         ? {
             raw: Buffer.from(
               id === "request-text"
-                ? "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"access_token\":\"integration-secret\"}"
-                : new Uint8Array([0, 1, 2, 3]),
+                ? `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n${responseText}`
+                : binaryResponse,
             ).toString("base64"),
           }
         : {}),

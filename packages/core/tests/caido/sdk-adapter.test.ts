@@ -8,6 +8,7 @@ import {
 
 class Builder<T> {
   readonly calls: Array<readonly unknown[]> = [];
+  failure: unknown;
 
   constructor(private readonly connection: T) {}
 
@@ -42,6 +43,7 @@ class Builder<T> {
   }
 
   async execute(): Promise<T> {
+    if (this.failure !== undefined) throw this.failure;
     return this.connection;
   }
 }
@@ -129,6 +131,7 @@ function sdkFixture() {
     ),
   );
   const events: string[] = [];
+  const sentRaw: Uint8Array[] = [];
   const client = {
     health: async () => ({ name: "caido", version: "0.57.1", ready: true }),
     project: {
@@ -208,8 +211,16 @@ function sdkFixture() {
           return { id: "session-created" };
         },
       },
-      send: async (sessionId: string) => {
+      send: async (
+        sessionId: string,
+        options: { raw: string | Uint8Array },
+      ) => {
         events.push(`send-replay:${sessionId}`);
+        sentRaw.push(
+          typeof options.raw === "string"
+            ? Uint8Array.from(Buffer.from(options.raw, "latin1"))
+            : new Uint8Array(options.raw),
+        );
         return {
           status: "DONE",
           entry: { id: "entry-created", request: { id: "request-created" } },
@@ -257,10 +268,13 @@ function sdkFixture() {
 
   return {
     adapter: new SdkCaidoAdapter(client as unknown as CaidoSdkClient),
+    client,
     events,
     requestBuilder,
     findingsBuilder,
+    replayEntryBuilder,
     replayBuilder,
+    sentRaw,
   };
 }
 
@@ -487,6 +501,235 @@ describe("SdkCaidoAdapter", () => {
       "create-replay-session",
       "send-replay:session-created",
     ]);
+  });
+
+  it.each([
+    ["http://127.0.0.1:18080/path", "Host: 127.0.0.1:18080\r\n"],
+    ["http://[::1]:18080/path", "Host: [::1]:18080\r\n"],
+    ["http://127.0.0.1:80/path", "Host: 127.0.0.1\r\n"],
+    ["https://[::1]:443/path", "Host: [::1]\r\n"],
+  ] as const)(
+    "serializes the exact HTTP Host authority for %s",
+    async (url, expectedHostLine) => {
+      const { adapter, sentRaw } = sdkFixture();
+
+      await adapter.sendRawRequest({ method: "GET", url, headers: [] });
+
+      expect(Buffer.from(sentRaw[0]!).toString("latin1")).toContain(
+        expectedHostLine,
+      );
+    },
+  );
+
+  it("includes a stored request's non-default port in Replay Host bytes", async () => {
+    const { adapter, requestBuilder, sentRaw } = sdkFixture();
+    const pair = requestBuilder["connection"].edges[0]!.node;
+    pair.request.host = "127.0.0.1";
+    pair.request.port = 18080;
+    pair.request.isTls = false;
+
+    await adapter.replayRequest("request-1", {
+      headers: [],
+      body: new Uint8Array(),
+      contentType: "text/plain",
+    });
+
+    expect(Buffer.from(sentRaw[0]!).toString("latin1")).toContain(
+      "Host: 127.0.0.1:18080\r\n",
+    );
+  });
+
+  it.each([
+    [
+      "scope listing transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.scope.list = async () => {
+          throw new Error("socket reset");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) => adapter.listScopes(),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "finding detail authentication failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.finding.get = async () => {
+          throw new Error("401 Unauthorized");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.getFinding("finding-1"),
+      "AUTH_FAILED",
+      false,
+    ],
+    [
+      "finding creation transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.finding.create = async () => {
+          throw new Error("connection refused");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.createFinding({
+          title: "Finding",
+          description: "Evidence",
+          requestId: "request-1",
+        }),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "Replay entry listing transport failure",
+      ({ replayEntryBuilder }: ReturnType<typeof sdkFixture>) => {
+        replayEntryBuilder.failure = new Error("socket reset");
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.listReplaySessions({ limit: 10 }),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "Replay request lookup transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.request.get = async () => {
+          throw new Error("connection refused");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.replayRequest("request-1", {
+          headers: [],
+          body: new Uint8Array(),
+          contentType: "text/plain",
+        }),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "Replay session creation transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.replay.sessions.create = async () => {
+          throw new Error("connection refused");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.sendRawRequest({
+          method: "GET",
+          url: "https://example.com/",
+          headers: [],
+        }),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "Replay send authentication failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.replay.send = async () => {
+          throw new Error("401 Unauthorized");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.sendRawRequest({
+          method: "GET",
+          url: "https://example.com/",
+          headers: [],
+        }),
+      "AUTH_FAILED",
+      false,
+    ],
+    [
+      "workflow run transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.workflow.run = async () => {
+          throw new Error("socket reset");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.runWorkflow("workflow-1", "request-1"),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "filter listing transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.filter.list = async () => {
+          throw new Error("connection refused");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.listFilters({ limit: 10 }),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "project selection transport failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.project.select = async () => {
+          throw new Error("socket reset");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.selectProject("project-1"),
+      "UPSTREAM_ERROR",
+      true,
+    ],
+    [
+      "project selection positive not-found failure",
+      ({ client }: ReturnType<typeof sdkFixture>) => {
+        client.project.select = async () => {
+          throw new Error("Project not found");
+        };
+      },
+      ({ adapter }: ReturnType<typeof sdkFixture>) =>
+        adapter.selectProject("missing-project"),
+      "NOT_FOUND",
+      false,
+    ],
+  ] as const)(
+    "maps %s through a deterministic SDK boundary",
+    async (_name, arrange, act, code, retryable) => {
+      const fixture = sdkFixture();
+      arrange(fixture);
+
+      await expect(act(fixture)).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({ code, retryable }),
+      );
+    },
+  );
+
+  it("preserves the deterministic Replay status failure", async () => {
+    const { adapter, client } = sdkFixture();
+    client.replay.send = async () => ({
+      status: "CANCELLED",
+      entry: { id: "entry-cancelled" },
+    });
+
+    await expect(
+      adapter.sendRawRequest({
+        method: "GET",
+        url: "https://example.com/",
+        headers: [],
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "UPSTREAM_ERROR",
+        retryable: false,
+      }),
+    );
+  });
+
+  it("maps SDK close failures through the same deterministic boundary", async () => {
+    const { adapter, client } = sdkFixture();
+    client.close = async () => {
+      throw new Error("socket reset");
+    };
+
+    await expect(adapter.close()).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "UPSTREAM_ERROR",
+        retryable: true,
+      }),
+    );
   });
 
   it.each([

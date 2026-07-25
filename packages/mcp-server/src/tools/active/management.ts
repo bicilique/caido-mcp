@@ -54,7 +54,7 @@ export function managementTools(
         requestId: z.string().min(1).max(256),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations(true, false, false),
+      annotations: activeAnnotations(false, false, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
         const evidence = await adapter.createFinding({

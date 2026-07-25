@@ -194,12 +194,19 @@ function validateInputHeaders(headers: RawMessage["headers"]): void {
 
 function boundaryError(
   error: unknown,
-  context: "httpql" | "read" | "mutation" | "select",
+  context: "httpql" | "read" | "mutation",
 ): AgentError {
   if (error instanceof AgentError) return error;
+  const typeName =
+    typeof error === "object" &&
+    error !== null &&
+    "__typename" in error &&
+    typeof error.__typename === "string"
+      ? error.__typename
+      : "";
   const detail =
     error instanceof Error
-      ? `${error.name} ${error.message}`
+      ? `${error.constructor.name} ${error.name} ${typeName} ${error.message}`
       : String(error);
   if (/unknown.?id|not.?found/i.test(detail)) {
     return new AgentError(
@@ -227,15 +234,10 @@ function boundaryError(
       "Correct the HTTPQL expression and retry.",
     );
   }
-  if (context === "select") {
-    return new AgentError(
-      "NOT_FOUND",
-      "The requested Caido project was not found.",
-      false,
-    );
-  }
   const malformed =
-    /zod|invalid_type|validation|malformed|no data/i.test(detail);
+    /zod|invalid_type|validation|malformed|no data|cannot read propert|expected .+ received/i.test(
+      detail,
+    );
   return new AgentError(
     "UPSTREAM_ERROR",
     malformed
@@ -243,6 +245,30 @@ function boundaryError(
       : "Caido returned an upstream operation error.",
     !malformed,
   );
+}
+
+async function sdkBoundary<T>(
+  context: "httpql" | "read" | "mutation",
+  operation: () => T | Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throw boundaryError(error, context);
+  }
+}
+
+function hostAuthority(
+  host: string,
+  port: number,
+  scheme: "http" | "https",
+): string {
+  const normalized = host.replace(/^\[|\]$/g, "");
+  const formattedHost = normalized.includes(":")
+    ? `[${normalized}]`
+    : normalized;
+  const defaultPort = scheme === "https" ? 443 : 80;
+  return port === defaultPort ? formattedHost : `${formattedHost}:${port}`;
 }
 
 function serializeRequest(
@@ -350,41 +376,37 @@ export class SdkCaidoAdapter implements CaidoAdapter {
 
   async listProjects(input: ListInput) {
     this.#ready();
-    try {
+    return sdkBoundary("read", async () => {
       const projects = (await this.#client.project.list()).map((project) =>
         mapProject(project, this.#selectedProject?.id),
       );
       return paginate(projects, input.limit, input.cursor);
-    } catch (error) {
-      throw boundaryError(error, "read");
-    }
+    });
   }
 
   async listRequests(input: RequestListInput) {
     this.#ready();
-    const builder = this.#client.request
-      .list()
-      .includeRaw({ request: false, response: false });
-    if (input.httpql !== undefined) builder.filter(input.httpql);
-    if (input.cursor !== undefined) builder.after(input.cursor);
-    builder[input.direction === "ascending" ? "ascending" : "descending"](
-      "req",
-      "created_at",
+    return sdkBoundary(
+      input.httpql === undefined ? "read" : "httpql",
+      async () => {
+        const builder = this.#client.request
+          .list()
+          .includeRaw({ request: false, response: false });
+        if (input.httpql !== undefined) builder.filter(input.httpql);
+        if (input.cursor !== undefined) builder.after(input.cursor);
+        builder[input.direction === "ascending" ? "ascending" : "descending"](
+          "req",
+          "created_at",
+        );
+        const page = await builder.first(input.limit).execute();
+        return mapConnection(page, mapRequestListSummary);
+      },
     );
-    try {
-      const page = await builder.first(input.limit).execute();
-      return mapConnection(page, mapRequestListSummary);
-    } catch (error) {
-      throw boundaryError(
-        error,
-        input.httpql === undefined ? "read" : "httpql",
-      );
-    }
   }
 
   async getRequests(ids: readonly string[]) {
     this.#ready();
-    try {
+    return sdkBoundary("read", async () => {
       const requests = await Promise.all(
         ids.map((id) =>
           this.#client.request.get(id, {
@@ -396,9 +418,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
       return requests.flatMap((request) =>
         request === undefined ? [] : [mapRequestDetail(request)],
       );
-    } catch (error) {
-      throw boundaryError(error, "read");
-    }
+    });
   }
 
   async listSitemap(): Promise<never> {
@@ -407,75 +427,85 @@ export class SdkCaidoAdapter implements CaidoAdapter {
 
   async listScopes() {
     this.#ready();
-    return (await this.#client.scope.list()).map(mapScope);
+    return sdkBoundary("read", async () =>
+      (await this.#client.scope.list()).map(mapScope),
+    );
   }
 
   async listFindings(input: ListInput) {
     this.#ready();
-    const builder = this.#client.finding.list();
-    if (input.cursor !== undefined) builder.after(input.cursor);
-    return mapConnection(
-      await builder.first(input.limit).execute(),
-      mapFindingSummary,
-    );
+    return sdkBoundary("read", async () => {
+      const builder = this.#client.finding.list();
+      if (input.cursor !== undefined) builder.after(input.cursor);
+      return mapConnection(
+        await builder.first(input.limit).execute(),
+        mapFindingSummary,
+      );
+    });
   }
 
   async getFinding(id: string) {
     this.#ready();
-    const finding = await this.#client.finding.get(id);
-    return finding === undefined ? undefined : mapFindingDetail(finding);
+    return sdkBoundary("read", async () => {
+      const finding = await this.#client.finding.get(id);
+      return finding === undefined ? undefined : mapFindingDetail(finding);
+    });
   }
 
   async listReplaySessions(
     input: ListInput,
   ): Promise<Page<ReplaySessionSummary>> {
     this.#ready();
-    const builder = this.#client.replay.sessions.list();
-    if (input.cursor !== undefined) builder.after(input.cursor);
-    const page = await builder.first(input.limit).execute();
-    const items = await Promise.all(
-      page.edges.map(async ({ node }) => {
-        const entries = await node.entries().first(100).execute();
-        return mapReplaySession(
-          node,
-          entries.edges.map(({ node: entry }) => entry.id),
-        );
-      }),
-    );
-    return {
-      items,
-      ...(page.pageInfo.hasNextPage && page.pageInfo.endCursor !== undefined
-        ? { nextCursor: page.pageInfo.endCursor }
-        : {}),
-    };
+    return sdkBoundary("read", async () => {
+      const builder = this.#client.replay.sessions.list();
+      if (input.cursor !== undefined) builder.after(input.cursor);
+      const page = await builder.first(input.limit).execute();
+      const items = await Promise.all(
+        page.edges.map(async ({ node }) => {
+          const entries = await node.entries().first(100).execute();
+          return mapReplaySession(
+            node,
+            entries.edges.map(({ node: entry }) => entry.id),
+          );
+        }),
+      );
+      return {
+        items,
+        ...(page.pageInfo.hasNextPage && page.pageInfo.endCursor !== undefined
+          ? { nextCursor: page.pageInfo.endCursor }
+          : {}),
+      };
+    });
   }
 
   async listWorkflows(input: ListInput) {
     this.#ready();
-    return paginate(
-      (await this.#client.workflow.list()).map(mapWorkflow),
-      input.limit,
-      input.cursor,
+    return sdkBoundary("read", async () =>
+      paginate(
+        (await this.#client.workflow.list()).map(mapWorkflow),
+        input.limit,
+        input.cursor,
+      ),
     );
   }
 
   async listFilters(input: ListInput) {
     this.#ready();
-    return paginate(
-      (await this.#client.filter.list()).map(mapFilter),
-      input.limit,
-      input.cursor,
+    return sdkBoundary("read", async () =>
+      paginate(
+        (await this.#client.filter.list()).map(mapFilter),
+        input.limit,
+        input.cursor,
+      ),
     );
   }
 
   async selectProject(id: string): Promise<MutationEvidence> {
     this.#ready();
-    try {
+    return sdkBoundary("mutation", async () => {
       this.#selectedProject = await this.#client.project.select(id);
-    } catch (error) {
-      throw boundaryError(error, "select");
-    }
-    return { projectId: id, requestIds: [], mutation: "select_project" };
+      return { projectId: id, requestIds: [], mutation: "select_project" };
+    });
   }
 
   async replayRequest(
@@ -483,164 +513,174 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     raw: RawMessage,
   ): Promise<MutationEvidence> {
     this.#ready();
-    const pair = await this.#client.request.get(requestId, {
-      requestRaw: false,
-      responseRaw: false,
-    });
-    if (pair === undefined) {
-      throw new AgentError(
-        "NOT_FOUND",
-        "The requested Caido request does not exist.",
-        false,
+    return sdkBoundary("mutation", async () => {
+      const pair = await this.#client.request.get(requestId, {
+        requestRaw: false,
+        responseRaw: false,
+      });
+      if (pair === undefined) {
+        throw new AgentError(
+          "NOT_FOUND",
+          "The requested Caido request does not exist.",
+          false,
+        );
+      }
+      const request = mapRequestSummary(pair);
+      const path = request.path;
+      validateInputHeaders(raw.headers);
+      const bytes = serializeRequest(
+        request.method,
+        path,
+        [
+          [
+            "Host",
+            hostAuthority(request.host, request.port, request.scheme),
+          ],
+          ...raw.headers,
+        ],
+        raw.body,
       );
-    }
-    const request = mapRequestSummary(pair);
-    const path = request.path;
-    validateInputHeaders(raw.headers);
-    const bytes = serializeRequest(
-      request.method,
-      path,
-      [["Host", request.host], ...raw.headers],
-      raw.body,
-    );
-    const connection = {
-      host: request.host,
-      port: request.port,
-      isTLS: request.scheme === "https",
-      SNI: request.host,
-    };
-    let result;
-    try {
+      const connection = {
+        host: request.host,
+        port: request.port,
+        isTLS: request.scheme === "https",
+        SNI: request.host,
+      };
       const session = await this.#client.replay.sessions.create({
         requestSource: { id: requestId },
       });
-      result = await this.#client.replay.send(session.id, {
+      const result = await this.#client.replay.send(session.id, {
         raw: bytes,
         connection,
       });
-    } catch (error) {
-      throw boundaryError(error, "mutation");
-    }
-    if (result.status !== "DONE") {
-      throw new AgentError(
-        "UPSTREAM_ERROR",
-        "Caido Replay did not complete successfully.",
-        result.status !== "CANCELLED",
-      );
-    }
-    return {
-      requestIds: [
-        requestId,
-        ...(result.entry.request === undefined
-          ? []
-          : [result.entry.request.id]),
-      ],
-      mutation: "replay_request",
-    };
+      if (result.status !== "DONE") {
+        throw new AgentError(
+          "UPSTREAM_ERROR",
+          "Caido Replay did not complete successfully.",
+          result.status !== "CANCELLED",
+        );
+      }
+      return {
+        requestIds: [
+          requestId,
+          ...(result.entry.request === undefined
+            ? []
+            : [result.entry.request.id]),
+        ],
+        mutation: "replay_request",
+      };
+    });
   }
 
   async sendRawRequest(input: RawRequestInput): Promise<MutationEvidence> {
     this.#ready();
-    let url: URL;
-    try {
-      url = new URL(input.url);
-    } catch {
-      throw new AgentError("INVALID_INPUT", "The request URL is invalid.", false);
-    }
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new AgentError(
-        "INVALID_INPUT",
-        "The request URL must use HTTP or HTTPS.",
-        false,
+    return sdkBoundary("mutation", async () => {
+      let url: URL;
+      try {
+        url = new URL(input.url);
+      } catch {
+        throw new AgentError(
+          "INVALID_INPUT",
+          "The request URL is invalid.",
+          false,
+        );
+      }
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new AgentError(
+          "INVALID_INPUT",
+          "The request URL must use HTTP or HTTPS.",
+          false,
+        );
+      }
+      const scheme = url.protocol === "https:" ? "https" : "http";
+      const port =
+        url.port === "" ? (scheme === "https" ? 443 : 80) : Number(url.port);
+      validateInputHeaders(input.headers);
+      const headers = [
+        ["Host", hostAuthority(url.hostname, port, scheme)],
+        ...input.headers,
+      ] as const;
+      const bytes = serializeRequest(
+        input.method,
+        `${url.pathname}${url.search}`,
+        headers,
+        input.body ?? new Uint8Array(),
       );
-    }
-    const port =
-      url.port === "" ? (url.protocol === "https:" ? 443 : 80) : Number(url.port);
-    validateInputHeaders(input.headers);
-    const headers = [["Host", url.host], ...input.headers] as const;
-    const bytes = serializeRequest(
-      input.method,
-      `${url.pathname}${url.search}`,
-      headers,
-      input.body ?? new Uint8Array(),
-    );
-    const connection = {
-      host: url.hostname,
-      port,
-      isTLS: url.protocol === "https:",
-      SNI: url.hostname,
-    };
-    let result;
-    try {
+      const connection = {
+        host: url.hostname,
+        port,
+        isTLS: scheme === "https",
+        SNI: url.hostname,
+      };
       const session = await this.#client.replay.sessions.create({
         requestSource: {
           raw: Buffer.from(bytes).toString("latin1"),
           connection,
         },
       });
-      result = await this.#client.replay.send(session.id, {
+      const result = await this.#client.replay.send(session.id, {
         raw: bytes,
         connection,
       });
-    } catch (error) {
-      throw boundaryError(error, "mutation");
-    }
-    if (result.status !== "DONE") {
-      throw new AgentError(
-        "UPSTREAM_ERROR",
-        "Caido Replay did not complete successfully.",
-        result.status !== "CANCELLED",
-      );
-    }
-    return {
-      requestIds:
-        result.entry.request === undefined ? [] : [result.entry.request.id],
-      mutation: "send_raw_request",
-    };
+      if (result.status !== "DONE") {
+        throw new AgentError(
+          "UPSTREAM_ERROR",
+          "Caido Replay did not complete successfully.",
+          result.status !== "CANCELLED",
+        );
+      }
+      return {
+        requestIds:
+          result.entry.request === undefined ? [] : [result.entry.request.id],
+        mutation: "send_raw_request",
+      };
+    });
   }
 
   async createFinding(
     input: CreateFindingInput,
   ): Promise<MutationEvidence> {
     this.#ready();
-    if (
-      typeof input !== "object" ||
-      input === null ||
-      Array.isArray(input)
-    ) {
-      throw new AgentError(
-        "INVALID_INPUT",
-        "Finding creation input must be a non-null object.",
-        false,
-      );
-    }
+    return sdkBoundary("mutation", async () => {
+      if (
+        typeof input !== "object" ||
+        input === null ||
+        Array.isArray(input)
+      ) {
+        throw new AgentError(
+          "INVALID_INPUT",
+          "Finding creation input must be a non-null object.",
+          false,
+        );
+      }
 
-    const supportedFields = new Set(["title", "description", "requestId"]);
-    if (Object.keys(input).some((field) => !supportedFields.has(field))) {
-      throw unavailable("Unsupported finding creation fields");
-    }
-    if (
-      typeof input.title !== "string" ||
-      input.title.trim() === "" ||
-      typeof input.description !== "string" ||
-      typeof input.requestId !== "string" ||
-      input.requestId.trim() === ""
-    ) {
-      throw new AgentError(
-        "INVALID_INPUT",
-        "A title, description, and request ID are required to create a Caido finding.",
-        false,
-      );
-    }
-    const finding = await this.#client.finding.create(input.requestId, {
-      title: input.title,
-      reporter: "caido-agent-kit",
-      description: input.description,
+      const supportedFields = new Set(["title", "description", "requestId"]);
+      if (Object.keys(input).some((field) => !supportedFields.has(field))) {
+        throw unavailable("Unsupported finding creation fields");
+      }
+      if (
+        typeof input.title !== "string" ||
+        input.title.trim() === "" ||
+        typeof input.description !== "string" ||
+        typeof input.requestId !== "string" ||
+        input.requestId.trim() === ""
+      ) {
+        throw new AgentError(
+          "INVALID_INPUT",
+          "A title, description, and request ID are required to create a Caido finding.",
+          false,
+        );
+      }
+      const finding = await this.#client.finding.create(input.requestId, {
+        title: input.title,
+        reporter: "caido-agent-kit",
+        description: input.description,
+      });
+      return {
+        requestIds: [finding.requestId],
+        mutation: "create_finding",
+      };
     });
-    return {
-      requestIds: [finding.requestId],
-      mutation: "create_finding",
-    };
   }
 
   async updateFinding(
@@ -648,37 +688,39 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: Partial<Omit<FindingDetail, "id">>,
   ): Promise<MutationEvidence> {
     this.#ready();
-    const providedFields: object = input;
-    if (
-      "severity" in providedFields ||
-      "requestIds" in providedFields
-    ) {
-      throw unavailable("Finding severity or request association updates");
-    }
-    const current = await this.#client.finding.get(id);
-    if (current === undefined) {
-      throw new AgentError(
-        "NOT_FOUND",
-        "The requested Caido finding does not exist.",
-        false,
-      );
-    }
-    const description =
-      input.evidence === undefined
-        ? (input.description ?? current.description ?? "")
-        : findingDescription(
-            input.description ?? current.description ?? "",
-            input.evidence,
-          );
-    const finding = await this.#client.finding.update(id, {
-      title: input.title ?? current.title,
-      description,
-      hidden: current.hidden,
+    return sdkBoundary("mutation", async () => {
+      const providedFields: object = input;
+      if (
+        "severity" in providedFields ||
+        "requestIds" in providedFields
+      ) {
+        throw unavailable("Finding severity or request association updates");
+      }
+      const current = await this.#client.finding.get(id);
+      if (current === undefined) {
+        throw new AgentError(
+          "NOT_FOUND",
+          "The requested Caido finding does not exist.",
+          false,
+        );
+      }
+      const description =
+        input.evidence === undefined
+          ? (input.description ?? current.description ?? "")
+          : findingDescription(
+              input.description ?? current.description ?? "",
+              input.evidence,
+            );
+      const finding = await this.#client.finding.update(id, {
+        title: input.title ?? current.title,
+        description,
+        hidden: current.hidden,
+      });
+      return {
+        requestIds: [finding.requestId],
+        mutation: "update_finding",
+      };
     });
-    return {
-      requestIds: [finding.requestId],
-      mutation: "update_finding",
-    };
   }
 
   async setIntercept(_enabled: boolean): Promise<never> {
@@ -690,26 +732,30 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     requestId: string,
   ): Promise<MutationEvidence> {
     this.#ready();
-    await this.#client.workflow.run({
-      kind: "active",
-      id,
-      requestId,
+    return sdkBoundary("mutation", async () => {
+      await this.#client.workflow.run({
+        kind: "active",
+        id,
+        requestId,
+      });
+      return {
+        requestIds: [requestId],
+        mutation: "run_workflow",
+      };
     });
-    return {
-      requestIds: [requestId],
-      mutation: "run_workflow",
-    };
   }
 
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
-    if (this.#closeClient !== undefined) {
-      await this.#closeClient();
-    } else if (this.#client.close !== undefined) {
-      await this.#client.close();
-    } else if (this.#client.disconnect !== undefined) {
-      await this.#client.disconnect();
-    }
+    await sdkBoundary("mutation", async () => {
+      if (this.#closeClient !== undefined) {
+        await this.#closeClient();
+      } else if (this.#client.close !== undefined) {
+        await this.#client.close();
+      } else if (this.#client.disconnect !== undefined) {
+        await this.#client.disconnect();
+      }
+    });
   }
 }

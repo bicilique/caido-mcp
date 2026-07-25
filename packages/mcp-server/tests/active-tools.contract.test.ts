@@ -135,7 +135,7 @@ describe("active tool catalog", () => {
       },
       caido_create_finding: {
         readOnlyHint: false,
-        destructiveHint: true,
+        destructiveHint: false,
         idempotentHint: false,
         openWorldHint: false,
       },
