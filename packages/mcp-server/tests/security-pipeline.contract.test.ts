@@ -7,7 +7,7 @@ import { AuditLogger } from "../../core/src/security/audit-log.js";
 import { AgentError } from "../../core/src/errors.js";
 import { RateLimiter } from "../../core/src/security/rate-limit.js";
 import { z } from "zod";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createToolExecutor } from "../src/execution/pipeline.js";
 import type { ToolDefinition } from "../src/registry.js";
@@ -59,11 +59,12 @@ async function executorFor(
 function tool(
   handler: ToolDefinition["handler"],
   name: `caido_${string}` = "caido_security_test",
+  mode: ToolDefinition["mode"] = "read-only",
 ): ToolDefinition {
   return {
     name,
     description: "Security pipeline test tool.",
-    mode: "read-only",
+    mode,
     inputSchema: z.strictObject({}),
     outputSchema: resultSchema(name, z.unknown()),
     annotations: readOnlyAnnotations,
@@ -195,5 +196,124 @@ describe("security execution pipeline", () => {
     expect(audit).toContain("evidence-1");
     expect(audit).toContain('"truncated":true');
     expect(audit).not.toContain("result-secret");
+  });
+
+  it("does not invoke an active handler when the intent audit cannot be recorded", async () => {
+    const handler = vi.fn(async () => ({
+      ok: true,
+      data: { mutation: "must-not-run" },
+      meta: { tool: "caido_security_test" },
+      warnings: [],
+    }));
+    const definition = tool(handler, "caido_security_test", "active");
+    const execute = createToolExecutor({
+      config: {
+        caidoUrl: "http://127.0.0.1:8080",
+        mode: "active",
+        requireScope: true,
+        allowSensitiveHeaders: false,
+        bodyLimit: 4096,
+        maxBatch: 20,
+        requestTimeoutMs: 100,
+        auditLog: "/unused/audit.jsonl",
+        tokenCache: "/unused/tokens.json",
+      },
+      auditLogger: {
+        record: async () => {
+          throw new Error("audit destination unavailable");
+        },
+      },
+      rateLimiter: { consume: () => undefined },
+    });
+
+    const result = await execute(definition, {}, new AbortController().signal);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "AUDIT_UNAVAILABLE", retryable: false },
+    });
+    expect(definition.outputSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("preserves one active mutation result when final audit recording fails", async () => {
+    const mutation = vi.fn(async () => ({
+      ok: true,
+      data: { evidence: { requestIds: ["request-1"] } },
+      meta: {
+        tool: "caido_security_test",
+        requestIds: ["request-1"],
+      },
+      warnings: [],
+    }));
+    const definition = tool(mutation, "caido_security_test", "active");
+    const record = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("audit finalization unavailable"));
+    const execute = createToolExecutor({
+      config: {
+        caidoUrl: "http://127.0.0.1:8080",
+        mode: "active",
+        requireScope: true,
+        allowSensitiveHeaders: false,
+        bodyLimit: 4096,
+        maxBatch: 20,
+        requestTimeoutMs: 100,
+        auditLog: "/unused/audit.jsonl",
+        tokenCache: "/unused/tokens.json",
+      },
+      auditLogger: { record },
+      rateLimiter: { consume: () => undefined },
+    });
+
+    const result = await execute(definition, {}, new AbortController().signal);
+
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      ok: true,
+      data: { evidence: { requestIds: ["request-1"] } },
+      warnings: [
+        "Audit finalization failed after execution. Preserve this result and do not retry automatically.",
+      ],
+    });
+    expect(definition.outputSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("returns a stable envelope when read-only audit recording fails", async () => {
+    const definition = tool(async () => ({
+      ok: true,
+      data: { safe: true },
+      meta: { tool: "caido_security_test" },
+      warnings: [],
+    }));
+    const execute = createToolExecutor({
+      config: {
+        caidoUrl: "http://127.0.0.1:8080",
+        mode: "read-only",
+        requireScope: true,
+        allowSensitiveHeaders: false,
+        bodyLimit: 4096,
+        maxBatch: 20,
+        requestTimeoutMs: 100,
+        auditLog: "/unused/audit.jsonl",
+        tokenCache: "/unused/tokens.json",
+      },
+      auditLogger: {
+        record: async () => {
+          throw new Error("audit destination unavailable");
+        },
+      },
+      rateLimiter: { consume: () => undefined },
+    });
+
+    const result = await execute(definition, {}, new AbortController().signal);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "AUDIT_UNAVAILABLE", retryable: false },
+    });
+    expect(definition.outputSchema.safeParse(result).success).toBe(true);
   });
 });

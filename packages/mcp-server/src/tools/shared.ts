@@ -312,12 +312,6 @@ export const ACTIVE_MUTATION_CONTRACTS = {
     target: "forbidden",
     projectId: "optional",
   },
-  caido_run_workflow: {
-    summary: "Ran one Caido workflow.",
-    mutation: "run_workflow",
-    target: "forbidden",
-    projectId: "optional",
-  },
   caido_replay_request: {
     summary: "Replayed one bounded request.",
     mutation: "replay_request",

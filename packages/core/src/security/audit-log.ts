@@ -13,6 +13,7 @@ export interface AuditEvent {
   timestamp: string;
   tool: string;
   mode: "read-only" | "active" | "admin";
+  phase: "intent" | "final";
   projectId?: string;
   requestIds?: string[];
   targetHost?: string;
@@ -87,6 +88,7 @@ export class AuditLogger {
       timestamp: event.timestamp,
       tool: event.tool,
       mode: event.mode,
+      phase: event.phase,
       ...(event.projectId === undefined ? {} : { projectId: event.projectId }),
       ...(event.requestIds === undefined
         ? {}

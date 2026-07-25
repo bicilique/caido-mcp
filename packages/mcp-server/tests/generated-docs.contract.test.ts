@@ -342,14 +342,21 @@ describe("generated tool reference", () => {
     }
   });
 
-  it("validates all 21 real handler successes and normalized errors", async () => {
+  it("validates available handler successes, workflow fail-closed, and normalized errors", async () => {
     const signal = new AbortController().signal;
     for (const tool of tools) {
       const input = tool.inputSchema.parse(validInputs[tool.name]);
-      const success = await tool.handler(input, signal);
-      expect(tool.outputSchema.safeParse(success).success, tool.name).toBe(
-        true,
-      );
+      if (tool.name === "caido_run_workflow") {
+        await expect(tool.handler(input, signal)).rejects.toMatchObject({
+          code: "TOOL_DISABLED",
+          retryable: false,
+        });
+      } else {
+        const success = await tool.handler(input, signal);
+        expect(tool.outputSchema.safeParse(success).success, tool.name).toBe(
+          true,
+        );
+      }
 
       const failure = errorResult(tool.name, {
         code: "INTERNAL_ERROR",
@@ -409,14 +416,28 @@ describe("generated tool reference", () => {
       const documented = outputSchemaFromSection(generated, tool.name);
       const documentedSchema = z.fromJSONSchema(documented);
       const input = tool.inputSchema.parse(validInputs[tool.name]);
-      const success = await tool.handler(input, signal);
       const failure = errorResult(tool.name, {
         code: "INTERNAL_ERROR",
         message: "The operation could not be completed safely.",
         retryable: false,
       });
 
-      expect(documentedSchema.safeParse(success).success, tool.name).toBe(true);
+      if (tool.name === "caido_run_workflow") {
+        const disabled = errorResult(tool.name, {
+          code: "TOOL_DISABLED",
+          message:
+            "Workflow execution is unavailable because outbound targets cannot be inspected.",
+          retryable: false,
+        });
+        expect(documentedSchema.safeParse(disabled).success, tool.name).toBe(
+          true,
+        );
+      } else {
+        const success = await tool.handler(input, signal);
+        expect(documentedSchema.safeParse(success).success, tool.name).toBe(
+          true,
+        );
+      }
       expect(documentedSchema.safeParse(failure).success, tool.name).toBe(true);
       expect(
         documentedSchema.safeParse({

@@ -93,7 +93,7 @@ export function knowledgeTools(
     ),
     paged(
       "caido_list_workflows",
-      "Lists workflows and enabled state. Use before requesting explicit workflow execution; it does not run a workflow.",
+      "Lists workflows and enabled state for inspection. Workflow execution is unavailable because complete outbound targets cannot be inspected; this tool sends no traffic.",
       (input) => adapter.listWorkflows(input),
       WorkflowSummarySchema,
     ),

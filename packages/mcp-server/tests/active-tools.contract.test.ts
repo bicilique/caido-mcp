@@ -162,6 +162,42 @@ describe("active tool catalog", () => {
     expect(
       active.find((tool) => tool.name === "caido_set_intercept")?.description,
     ).toMatch(/production SDK may return TOOL_DISABLED/);
+    expect(
+      active.find((tool) => tool.name === "caido_run_workflow")?.description,
+    ).toMatch(/outbound targets cannot be inspected/i);
+  });
+
+  it("fails closed without invoking the workflow adapter", async () => {
+    const runWorkflow = vi.fn();
+    const adapter = createTestAdapter({ runWorkflow });
+    const { client } = await harness("active", adapter);
+    const definition = createActiveTools(adapter, {
+      bodyLimit: 4096,
+      maxBatch: 20,
+    }).find((tool) => tool.name === "caido_run_workflow")!;
+
+    const result = await client.callTool({
+      name: "caido_run_workflow",
+      arguments: { workflowId: "workflow-1", requestId: "request-1" },
+    });
+
+    expect(runWorkflow).not.toHaveBeenCalled();
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      error: { code: "TOOL_DISABLED", retryable: false },
+      meta: { tool: "caido_run_workflow" },
+    });
+    expect(
+      definition.outputSchema.safeParse({
+        ok: true,
+        data: {
+          summary: "Ran one Caido workflow.",
+          evidence: { mutation: "run_workflow", requestIds: ["request-1"] },
+        },
+        meta: { tool: "caido_run_workflow" },
+        warnings: [],
+      }).success,
+    ).toBe(false);
   });
 
   it.each([
@@ -210,10 +246,17 @@ describe("active tool catalog", () => {
         meta: { tool: "caido_send_raw_request" },
       });
       expect(sendRawRequest).not.toHaveBeenCalled();
-      expect(audit).toHaveLength(1);
+      expect(audit).toHaveLength(2);
       expect(audit[0]).toMatchObject({
         tool: "caido_send_raw_request",
         mode: "active",
+        phase: "intent",
+        success: true,
+      });
+      expect(audit[1]).toMatchObject({
+        tool: "caido_send_raw_request",
+        mode: "active",
+        phase: "final",
         success: false,
         errorCode: "OUT_OF_SCOPE",
       });
@@ -269,9 +312,15 @@ describe("active tool catalog", () => {
       },
     });
     expect(sendRawRequest).toHaveBeenCalledTimes(1);
-    expect(audit).toHaveLength(1);
+    expect(audit).toHaveLength(2);
     expect(audit[0]).toMatchObject({
       tool: "caido_send_raw_request",
+      phase: "intent",
+      success: true,
+    });
+    expect(audit[1]).toMatchObject({
+      tool: "caido_send_raw_request",
+      phase: "final",
       success: true,
       requestIds: ["request-new"],
     });
@@ -377,12 +426,6 @@ describe("active tool catalog", () => {
       override: "setIntercept",
       evidence: { mutation: "set_intercept", requestIds: [] },
     },
-    {
-      name: "caido_run_workflow",
-      arguments: { workflowId: "workflow-1", requestId: "request-1" },
-      override: "runWorkflow",
-      evidence: { mutation: "run_workflow", requestIds: ["request-1"] },
-    },
   ] as const)(
     "$name executes one atomic mutation and returns explicit evidence",
     async ({ name, arguments: toolArguments, override, evidence }) => {
@@ -403,8 +446,17 @@ describe("active tool catalog", () => {
         },
       });
       expect(mutation).toHaveBeenCalledTimes(1);
-      expect(audit).toHaveLength(1);
-      expect(audit[0]).toMatchObject({ tool: name, success: true });
+      expect(audit).toHaveLength(2);
+      expect(audit[0]).toMatchObject({
+        tool: name,
+        phase: "intent",
+        success: true,
+      });
+      expect(audit[1]).toMatchObject({
+        tool: name,
+        phase: "final",
+        success: true,
+      });
     },
   );
 

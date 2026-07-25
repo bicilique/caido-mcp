@@ -1,4 +1,4 @@
-import { successResult } from "@caido-agent-kit/core";
+import { AgentError, successResult } from "@caido-agent-kit/core";
 import type { CaidoAdapter } from "@caido-agent-kit/core";
 import { z } from "zod";
 
@@ -153,32 +153,21 @@ export function managementTools(
     {
       name: "caido_run_workflow",
       description:
-        "Runs exactly one bounded Caido workflow and returns mutation evidence. It performs no automatic retry or follow-up action.",
+        "Unavailable because complete workflow outbound targets cannot be inspected before execution. It fails closed with TOOL_DISABLED and never invokes the workflow adapter.",
       mode: "active",
       inputSchema: z.strictObject({
         workflowId: z.string().min(1).max(256),
         requestId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(
-        "caido_run_workflow",
-        activeMutationDataSchema("caido_run_workflow"),
-      ),
+      outputSchema: resultSchema("caido_run_workflow", z.never()),
       annotations: activeAnnotations(true, false, true),
-      handler: async (input, signal) => {
+      handler: async (_input, signal) => {
         throwIfAborted(signal);
-        const evidence = await adapter.runWorkflow(
-          input.workflowId as string,
-          input.requestId as string,
-        );
-        return asRecord(
-          successResult(
-            "caido_run_workflow",
-            mutationData(
-              ACTIVE_MUTATION_CONTRACTS.caido_run_workflow.summary,
-              evidence,
-            ),
-            { requestIds: [...evidence.requestIds] },
-          ),
+        throw new AgentError(
+          "TOOL_DISABLED",
+          "Workflow execution is unavailable because its complete outbound targets cannot be inspected safely.",
+          false,
+          "Use the read-only workflow tools to inspect configuration; execute the workflow manually in Caido after reviewing every outbound target.",
         );
       },
     },

@@ -62,12 +62,42 @@ function redactResult(
   return { ...redacted, meta: metaFrom(redacted) };
 }
 
+function auditUnavailableResult(tool: string): Record<string, unknown> {
+  return redactResult(
+    asRecord(
+      errorResult(
+        tool,
+        normalizeError(
+          new AgentError(
+            "AUDIT_UNAVAILABLE",
+            "Audit logging is unavailable, so the operation cannot be completed safely.",
+            false,
+            "Restore durable audit logging and review system state before issuing a new request.",
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+function appendAuditFinalizationWarning(
+  result: Record<string, unknown>,
+): Record<string, unknown> {
+  const warning =
+    "Audit finalization failed after execution. Preserve this result and do not retry automatically.";
+  const warnings = Array.isArray(result.warnings)
+    ? result.warnings.filter((item): item is string => typeof item === "string")
+    : [];
+  return { ...result, warnings: [...warnings, warning] };
+}
+
 export function createToolExecutor(options: ToolExecutorOptions): ToolExecutor {
   return async (tool, input, signal) => {
     const startedAt = Date.now();
     const timeout = AbortSignal.timeout(options.config.requestTimeoutMs);
     const combinedSignal = AbortSignal.any([signal, timeout]);
     let result: Record<string, unknown>;
+    let handlerStarted = false;
 
     try {
       const parsed = tool.inputSchema.safeParse(input);
@@ -93,6 +123,22 @@ export function createToolExecutor(options: ToolExecutorOptions): ToolExecutor {
         throw abortError(timeout);
       }
 
+      if (tool.mode === "active") {
+        try {
+          await options.auditLogger.record({
+            timestamp: new Date().toISOString(),
+            tool: tool.name,
+            mode: options.config.mode,
+            phase: "intent",
+            success: true,
+            durationMs: Date.now() - startedAt,
+            truncated: false,
+          });
+        } catch {
+          return auditUnavailableResult(tool.name);
+        }
+      }
+
       const aborted = new Promise<never>((_, reject) => {
         combinedSignal.addEventListener(
           "abort",
@@ -100,6 +146,7 @@ export function createToolExecutor(options: ToolExecutorOptions): ToolExecutor {
           { once: true },
         );
       });
+      handlerStarted = true;
       result = redactResult(
         await Promise.race([
           tool.handler(parsed.data as Record<string, unknown>, combinedSignal),
@@ -114,22 +161,30 @@ export function createToolExecutor(options: ToolExecutorOptions): ToolExecutor {
 
     const meta = metaFrom(result);
     const error = errorFrom(result);
-    await options.auditLogger.record({
-      timestamp: new Date().toISOString(),
-      tool: tool.name,
-      mode: options.config.mode,
-      ...(typeof meta.projectId === "string"
-        ? { projectId: meta.projectId }
-        : {}),
-      ...(Array.isArray(meta.requestIds) &&
-      meta.requestIds.every((id) => typeof id === "string")
-        ? { requestIds: meta.requestIds }
-        : {}),
-      success: result.ok === true,
-      ...(error === undefined ? {} : { errorCode: error.code }),
-      durationMs: Date.now() - startedAt,
-      truncated: meta.truncated === true,
-    });
+    try {
+      await options.auditLogger.record({
+        timestamp: new Date().toISOString(),
+        tool: tool.name,
+        mode: options.config.mode,
+        phase: "final",
+        ...(typeof meta.projectId === "string"
+          ? { projectId: meta.projectId }
+          : {}),
+        ...(Array.isArray(meta.requestIds) &&
+        meta.requestIds.every((id) => typeof id === "string")
+          ? { requestIds: meta.requestIds }
+          : {}),
+        success: result.ok === true,
+        ...(error === undefined ? {} : { errorCode: error.code }),
+        durationMs: Date.now() - startedAt,
+        truncated: meta.truncated === true,
+      });
+    } catch {
+      if (tool.mode === "active" && handlerStarted) {
+        return appendAuditFinalizationWarning(result);
+      }
+      return auditUnavailableResult(tool.name);
+    }
     return result;
   };
 }

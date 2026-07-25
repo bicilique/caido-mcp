@@ -226,6 +226,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -561,6 +562,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -800,6 +802,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -1101,6 +1104,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -1527,6 +1531,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -1778,6 +1783,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -2056,6 +2062,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -2318,6 +2325,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -2587,6 +2595,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -2849,6 +2858,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -3114,6 +3124,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -3426,6 +3437,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -3697,6 +3709,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -3965,6 +3978,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -4012,7 +4026,7 @@ Generated from the canonical MCP registry. Do not edit manually.
 
 ## `caido_list_workflows`
 
-**Purpose:** Lists workflows and enabled state. Use before requesting explicit workflow execution; it does not run a workflow.
+**Purpose:** Lists workflows and enabled state for inspection. Workflow execution is unavailable because complete outbound targets cannot be inspected; this tool sends no traffic.
 
 **Mode:** read-only
 
@@ -4227,6 +4241,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -4543,6 +4558,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -4590,7 +4606,7 @@ Generated from the canonical MCP registry. Do not edit manually.
 
 ## `caido_run_workflow`
 
-**Purpose:** Runs exactly one bounded Caido workflow and returns mutation evidence. It performs no automatic retry or follow-up action.
+**Purpose:** Unavailable because complete workflow outbound targets cannot be inspected before execution. It fails closed with TOOL_DISABLED and never invokes the workflow adapter.
 
 **Mode:** active
 
@@ -4639,41 +4655,7 @@ Generated from the canonical MCP registry. Do not edit manually.
           "const": true
         },
         "data": {
-          "type": "object",
-          "properties": {
-            "summary": {
-              "type": "string",
-              "const": "Ran one Caido workflow."
-            },
-            "evidence": {
-              "type": "object",
-              "properties": {
-                "projectId": {
-                  "type": "string"
-                },
-                "requestIds": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "mutation": {
-                  "type": "string",
-                  "const": "run_workflow"
-                }
-              },
-              "required": [
-                "requestIds",
-                "mutation"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "required": [
-            "summary",
-            "evidence"
-          ],
-          "additionalProperties": false
+          "not": {}
         },
         "meta": {
           "type": "object",
@@ -4807,6 +4789,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -5066,6 +5049,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -5388,6 +5372,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -5644,6 +5629,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",
@@ -5913,6 +5899,7 @@ Generated from the canonical MCP registry. Do not edit manually.
                 "NOT_FOUND",
                 "OUT_OF_SCOPE",
                 "TOOL_DISABLED",
+                "AUDIT_UNAVAILABLE",
                 "TIMEOUT",
                 "RATE_LIMITED",
                 "UPSTREAM_ERROR",

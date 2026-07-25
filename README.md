@@ -19,8 +19,10 @@ narrow bridge rather than a general-purpose shell or scanning tool.
 ## Security posture
 
 - `read-only` is the default and sends no target traffic.
-- `active` operations require explicit opt-in and selected, permitted Caido
-  scope; ambiguity fails closed.
+- `active` operations require explicit opt-in. Outbound Replay and raw-send
+  operations additionally require a selected, permitted Caido scope; ambiguity
+  fails closed. Workflow execution is unavailable because its complete outbound
+  targets cannot be inspected before execution.
 - Captured traffic, comments, and findings are untrusted evidence, never
   instructions.
 - Credentials are supplied through the client environment, redacted from
@@ -44,11 +46,11 @@ does not bypass MCP validation, scope enforcement, redaction, or auditing.
 
 ## Operating modes
 
-| Mode        | Availability                | Behavior                                |
-| ----------- | --------------------------- | --------------------------------------- |
-| `read-only` | Default                     | 14 inspection tools; no target traffic. |
-| `active`    | Explicit opt-in             | Seven scope-gated atomic operations.    |
-| `admin`     | Reserved compatibility mode | No destructive catalog.                 |
+| Mode        | Availability                | Behavior                                                                        |
+| ----------- | --------------------------- | ------------------------------------------------------------------------------- |
+| `read-only` | Default                     | 14 inspection tools; no target traffic.                                         |
+| `active`    | Explicit opt-in             | Six bounded operations; Replay/raw send are scope-gated. Workflow fails closed. |
+| `admin`     | Reserved compatibility mode | No destructive catalog.                                                         |
 
 ## Requirements
 

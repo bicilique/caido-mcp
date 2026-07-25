@@ -16,7 +16,7 @@ HTTPQL server-side, hasil berbatas, evidence ID, registry kanonik, anotasi MCP, 
 
 ## Diimplementasikan
 
-SDK adapter resmi, stdio lokal, 14 tool baca, tujuh tool aktif bergate, enam resources, prompt aman, cache owner-only, redaksi/scope/audit terpusat, eval deterministik, dan pengujian mock.
+SDK adapter resmi, stdio lokal, 14 tool baca, enam operasi aktif berbatas, Replay/raw send bergate scope, workflow fail-closed, enam resources, prompt aman, cache owner-only, redaksi/scope/audit terpusat, eval deterministik, dan pengujian mock.
 
 ## Ditunda
 

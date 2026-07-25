@@ -12,7 +12,13 @@ Runtime membaca konfigurasi, membuka cache owner-only, lalu SDK memakai cache, P
 
 ## Siklus Tool Call
 
-Schema validation → timeout/cancel → rate token → selected project → normalisasi destination dan scope (untuk jaringan aktif) → tepat satu adapter call → redaksi/body bound → audit → result envelope.
+Schema validation → timeout/cancel → rate token → intent audit durable (untuk tool aktif) → selected project → normalisasi destination dan scope (untuk Replay/raw send) → paling banyak satu adapter call → redaksi/body bound → final audit → result envelope.
+
+Kegagalan intent audit menghasilkan `AUDIT_UNAVAILABLE` non-retryable sebelum
+handler aktif dipanggil. Jika final audit gagal setelah handler aktif selesai,
+hasil dan evidence mutasi dipertahankan dengan warning eksplisit agar caller
+tidak melakukan retry otomatis. Kegagalan audit pada jalur read-only juga
+dikembalikan sebagai envelope `AUDIT_UNAVAILABLE`, bukan rejection mentah.
 
 ## Aliran Scope, Redaksi, dan Error
 
