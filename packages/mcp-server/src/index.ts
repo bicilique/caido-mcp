@@ -1,12 +1,34 @@
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { createRuntime, runStdioServer } from "./runtime.js";
 
 export { createRuntime, runStdioServer };
 
+function canonicalPath(path: string): string | undefined {
+  try {
+    return realpathSync(path);
+  } catch {
+    return undefined;
+  }
+}
+
+function canonicalModulePath(url: string): string | undefined {
+  try {
+    return canonicalPath(fileURLToPath(url));
+  } catch {
+    return undefined;
+  }
+}
+
+const executedPath =
+  process.argv[1] === undefined ? undefined : canonicalPath(process.argv[1]);
+const modulePath = canonicalModulePath(import.meta.url);
+
 if (
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
+  executedPath !== undefined &&
+  modulePath !== undefined &&
+  executedPath === modulePath
 ) {
   void runStdioServer().catch((error: unknown) => {
     process.stderr.write(

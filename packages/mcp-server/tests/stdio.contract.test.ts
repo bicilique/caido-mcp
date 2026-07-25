@@ -1,5 +1,12 @@
 import { once } from "node:events";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  lstat,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -19,13 +26,19 @@ afterEach(async () => {
 
 describe("stdio entrypoint", () => {
   it("imports the package root without starting stdio", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido missing import argv "),
+    );
+    directories.push(directory);
     const entrypoint = resolve("packages/mcp-server/dist/index.js");
+    const missingArgvEntrypoint = join(directory, "missing entrypoint.js");
     const child = spawn(
       process.execPath,
       [
         "--input-type=module",
         "--eval",
         `await import(${JSON.stringify(pathToFileURL(entrypoint).href)})`,
+        missingArgvEntrypoint,
       ],
       {
         env: {
@@ -62,6 +75,73 @@ describe("stdio entrypoint", () => {
       stderr: "",
     });
   }, 7_000);
+
+  it("starts stdio through an absolute symlink entrypoint containing spaces", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido symlink entrypoint with spaces "),
+    );
+    directories.push(directory);
+    const target = resolve("packages/mcp-server/dist/index.js");
+    const entrypoint = join(directory, "linked index entrypoint.js");
+    await symlink(target, entrypoint);
+
+    expect(isAbsolute(entrypoint)).toBe(true);
+    expect(entrypoint).toContain(" ");
+    expect((await lstat(entrypoint)).isSymbolicLink()).toBe(true);
+    expect(await realpath(entrypoint)).toBe(await realpath(target));
+
+    const child = spawn(process.execPath, [entrypoint], {
+      cwd: directory,
+      env: {
+        ...process.env,
+        CAIDO_URL: "http://127.0.0.1:1",
+        CAIDO_PAT: "caido_test",
+        CAIDO_REQUEST_TIMEOUT_MS: "20",
+        CAIDO_AUDIT_LOG: join(directory, "audit log.jsonl"),
+        CAIDO_TOKEN_CACHE: join(directory, "token cache.json"),
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stdin.write(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-11-25",
+          capabilities: {},
+          clientInfo: { name: "symlink-test", version: "1.0.0" },
+        },
+      })}\n`,
+    );
+
+    await expect
+      .poll(() => stdout.split("\n").filter(Boolean).length, { timeout: 5_000 })
+      .toBeGreaterThanOrEqual(1);
+    expect(
+      stdout
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .find((message) => message.id === 1),
+    ).toMatchObject({
+      jsonrpc: "2.0",
+      result: expect.objectContaining({
+        serverInfo: { name: "caido-agent-kit", version: "0.1.0" },
+      }),
+    });
+
+    child.kill("SIGTERM");
+    const [code, signal] = (await once(child, "exit")) as [
+      number | null,
+      NodeJS.Signals | null,
+    ];
+    expect({ code, signal }).toEqual({ code: 0, signal: null });
+  }, 10_000);
 
   it("uses stdout only for MCP and shuts down cleanly with absolute paths containing spaces", async () => {
     const directory = await mkdtemp(join(tmpdir(), "caido stdio with spaces "));
