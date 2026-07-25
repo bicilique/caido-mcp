@@ -1,5 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,6 +11,51 @@ async function document(path: string): Promise<string> {
 }
 
 describe("release documentation", () => {
+  it("presents the security-first landing page and protects repository evidence", async () => {
+    const readme = await readFile(join(root, "README.md"), "utf8");
+
+    expect(readme).toContain(
+      "https://github.com/bicilique/caido-mcp/actions/workflows/ci.yml",
+    );
+    expect(readme).toMatch(/## Security posture/i);
+    expect(readme).toMatch(/## Architecture/i);
+    expect(readme).toContain("```mermaid");
+    expect(readme).toMatch(/## Operating modes/i);
+    expect(readme).toMatch(/## Quick start/i);
+    expect(readme).toMatch(/## Verification evidence/i);
+    expect(readme).toMatch(/real-Caido E2E/i);
+    expect(readme).toContain("README.id.md");
+
+    const gitignore = await readFile(join(root, ".gitignore"), "utf8");
+
+    for (const rule of [
+      ".env*",
+      "!.env.example",
+      ".idea/",
+      ".vscode/",
+      ".pnpm-store/",
+      "*.tsbuildinfo",
+      ".caido-agent/",
+      "*.swp",
+      "*~",
+    ]) {
+      expect(gitignore).toContain(rule);
+    }
+
+    for (const trackedPath of [
+      "README.md",
+      "README.id.md",
+      "pnpm-lock.yaml",
+      ".github/workflows/ci.yml",
+      "skills/caido-operator/references/tool-selection.md",
+    ]) {
+      const result = spawnSync("git", ["check-ignore", "-q", trackedPath], {
+        cwd: root,
+      });
+      expect(result.status).toBe(1);
+    }
+  });
+
   it("provides the complete numbered documentation set and release records", async () => {
     const required = [
       "README.md",
