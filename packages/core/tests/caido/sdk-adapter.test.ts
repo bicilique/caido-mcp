@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+  AuthorizationUserError,
+  NotFoundUserError,
+  OperationUserError,
+} from "@caido/sdk-client";
 
 import { AgentError } from "../../src/errors.js";
 import {
@@ -555,7 +560,9 @@ describe("SdkCaidoAdapter", () => {
       "finding detail authentication failure",
       ({ client }: ReturnType<typeof sdkFixture>) => {
         client.finding.get = async () => {
-          throw new Error("401 Unauthorized");
+          throw new AuthorizationUserError({
+            reason: "INVALID_TOKEN",
+          } as ConstructorParameters<typeof AuthorizationUserError>[0]);
         };
       },
       ({ adapter }: ReturnType<typeof sdkFixture>) =>
@@ -625,7 +632,9 @@ describe("SdkCaidoAdapter", () => {
       "Replay send authentication failure",
       ({ client }: ReturnType<typeof sdkFixture>) => {
         client.replay.send = async () => {
-          throw new Error("401 Unauthorized");
+          throw new AuthorizationUserError({
+            reason: "INVALID_TOKEN",
+          } as ConstructorParameters<typeof AuthorizationUserError>[0]);
         };
       },
       ({ adapter }: ReturnType<typeof sdkFixture>) =>
@@ -677,7 +686,7 @@ describe("SdkCaidoAdapter", () => {
       "project selection positive not-found failure",
       ({ client }: ReturnType<typeof sdkFixture>) => {
         client.project.select = async () => {
-          throw new Error("Project not found");
+          throw new NotFoundUserError();
         };
       },
       ({ adapter }: ReturnType<typeof sdkFixture>) =>
@@ -696,6 +705,40 @@ describe("SdkCaidoAdapter", () => {
       );
     },
   );
+
+  it("does not infer invalid HTTPQL from OperationUserError type alone", async () => {
+    const { adapter, requestBuilder } = sdkFixture();
+    requestBuilder.failure = new OperationUserError({
+      message: "internal resolver failure",
+    } as ConstructorParameters<typeof OperationUserError>[0]);
+
+    await expect(
+      adapter.listRequests({
+        httpql: 'req.host.eq:"example.com"',
+        direction: "descending",
+        limit: 10,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "UPSTREAM_ERROR",
+        retryable: true,
+      }),
+    );
+  });
+
+  it("does not infer not-found from a generic gateway message", async () => {
+    const { adapter, client } = sdkFixture();
+    client.project.select = async () => {
+      throw new Error("Gateway returned 404 Not Found");
+    };
+
+    await expect(adapter.selectProject("project-1")).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "UPSTREAM_ERROR",
+        retryable: true,
+      }),
+    );
+  });
 
   it("preserves the deterministic Replay status failure", async () => {
     const { adapter, client } = sdkFixture();

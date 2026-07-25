@@ -1,3 +1,12 @@
+import {
+  AuthorizationUserError,
+  NetworkUserError,
+  NoDataUserError,
+  NotFoundUserError,
+  OperationUserError,
+  PermissionDeniedUserError,
+  TokenRefreshError,
+} from "@caido/sdk-client";
 import type {
   FilterPreset,
   Finding,
@@ -7,6 +16,7 @@ import type {
   Scope,
   Workflow,
 } from "@caido/sdk-client";
+import { ZodError } from "zod";
 
 import { AgentError } from "../errors.js";
 import type {
@@ -197,25 +207,59 @@ function boundaryError(
   context: "httpql" | "read" | "mutation",
 ): AgentError {
   if (error instanceof AgentError) return error;
-  const typeName =
+  const record =
     typeof error === "object" &&
-    error !== null &&
-    "__typename" in error &&
-    typeof error.__typename === "string"
-      ? error.__typename
-      : "";
-  const detail =
-    error instanceof Error
-      ? `${error.constructor.name} ${error.name} ${typeName} ${error.message}`
-      : String(error);
-  if (/unknown.?id|not.?found/i.test(detail)) {
+    error !== null
+      ? (error as Record<string, unknown>)
+      : undefined;
+  const typeName =
+    typeof record?.__typename === "string" ? record.__typename : undefined;
+  const constructorName =
+    error instanceof Error ? error.constructor.name : undefined;
+  const response =
+    typeof record?.response === "object" && record.response !== null
+      ? (record.response as Record<string, unknown>)
+      : undefined;
+  const status =
+    typeof record?.status === "number"
+      ? record.status
+      : typeof record?.statusCode === "number"
+        ? record.statusCode
+        : typeof response?.status === "number"
+          ? response.status
+          : undefined;
+  const code = typeof record?.code === "string" ? record.code : undefined;
+  const isNotFound =
+    error instanceof NotFoundUserError ||
+    constructorName === "NotFoundUserError" ||
+    typeName === "RequestNotFoundUserError" ||
+    typeName === "UnknownIdUserError" ||
+    status === 404;
+  if (isNotFound) {
     return new AgentError(
       "NOT_FOUND",
       "The requested Caido object was not found.",
       false,
     );
   }
-  if (/\b401\b|unauthori[sz]ed|authentication|authorization/i.test(detail)) {
+  const isAuthenticationFailure =
+    error instanceof AuthorizationUserError ||
+    error instanceof PermissionDeniedUserError ||
+    error instanceof TokenRefreshError ||
+    constructorName === "AuthorizationUserError" ||
+    constructorName === "PermissionDeniedUserError" ||
+    constructorName === "TokenRefreshError" ||
+    typeName === "AuthorizationUserError" ||
+    typeName === "PermissionDeniedUserError" ||
+    typeName === "TokenRefreshError" ||
+    ((error instanceof NetworkUserError ||
+      constructorName === "NetworkUserError" ||
+      typeName === "NetworkUserError") &&
+      error instanceof Error &&
+      error.message === "A network error occured: Unauthorized") ||
+    status === 401 ||
+    status === 403;
+  if (isAuthenticationFailure) {
     return new AgentError(
       "AUTH_FAILED",
       "Caido rejected the configured authentication credential.",
@@ -223,10 +267,19 @@ function boundaryError(
       "Verify the configured credential or refresh the token cache.",
     );
   }
-  if (
-    context === "httpql" &&
-    /httpql|operationusererror|syntax|parse/i.test(detail)
-  ) {
+  const isOperationError =
+    error instanceof OperationUserError ||
+    constructorName === "OperationUserError" ||
+    typeName === "OperationUserError";
+  const hasExplicitHttpqlEvidence =
+    code === "INVALID_HTTPQL" ||
+    code === "HTTPQL_PARSE_ERROR" ||
+    (isOperationError &&
+      error instanceof Error &&
+      /^(?:\[GraphQL\]\s+)?(?:invalid httpql\b|httpql (?:syntax|parse) error\b|syntax error in httpql\b)/i.test(
+        error.message,
+      ));
+  if (context === "httpql" && hasExplicitHttpqlEvidence) {
     return new AgentError(
       "INVALID_HTTPQL",
       "Caido rejected the HTTPQL expression.",
@@ -235,9 +288,14 @@ function boundaryError(
     );
   }
   const malformed =
-    /zod|invalid_type|validation|malformed|no data|cannot read propert|expected .+ received/i.test(
-      detail,
-    );
+    error instanceof NoDataUserError ||
+    error instanceof ZodError ||
+    error instanceof TypeError ||
+    constructorName === "NoDataUserError" ||
+    constructorName === "ZodError" ||
+    constructorName === "TypeError" ||
+    typeName === "NoDataUserError" ||
+    code === "INVALID_RESPONSE";
   return new AgentError(
     "UPSTREAM_ERROR",
     malformed
