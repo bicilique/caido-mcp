@@ -12,7 +12,7 @@ All notable changes are documented here. The format follows Keep a Changelog; th
 
 ### Fixed
 
-- The documented absolute `packages/mcp-server/dist/index.js` path now starts the stdio server when executed directly while remaining side-effect-free when imported as a library.
+- The documented absolute `packages/mcp-server/dist/index.js` path now starts the stdio server when executed directly, including through canonicalized symlinks with spaces, while remaining side-effect-free when imported as a library.
 
 ### Security
 
