@@ -9,11 +9,13 @@ import {
 } from "./registry.js";
 import { serializeStructuredResult } from "./serialization/result-content.js";
 import type { ResourceDefinition } from "./resources/types.js";
+import type { PromptDefinition } from "./prompts/index.js";
 
 interface ServerOptions {
   mode: RegistrationMode;
   tools: readonly ToolDefinition[];
   resources?: readonly ResourceDefinition[];
+  prompts?: readonly PromptDefinition[];
 }
 
 export function createServer(options: ServerOptions): McpServer {
@@ -91,6 +93,24 @@ export function createServer(options: ServerOptions): McpServer {
         }),
       );
     }
+  }
+
+  for (const prompt of options.prompts ?? []) {
+    server.registerPrompt(
+      prompt.name,
+      {
+        description: prompt.description,
+        argsSchema: prompt.argsSchema,
+      },
+      ({ objective }) => ({
+        messages: [
+          {
+            role: "user",
+            content: { type: "text", text: prompt.render(objective) },
+          },
+        ],
+      }),
+    );
   }
 
   return server;
