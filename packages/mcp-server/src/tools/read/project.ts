@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import type { CaidoAdapter } from "../../../../core/src/caido/adapter.js";
-import { successResult } from "../../../../core/src/result.js";
 import {
+  successResult,
+  type CaidoAdapter,
   evaluateScope,
   normalizeTarget,
-} from "../../../../core/src/security/scope-guard.js";
+} from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
   arrayData,

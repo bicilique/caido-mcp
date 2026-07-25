@@ -1,4 +1,4 @@
-import type { CaidoAdapter } from "../../../../core/src/caido/adapter.js";
+import type { CaidoAdapter } from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import { knowledgeTools } from "./knowledge.js";
 import { projectTools } from "./project.js";

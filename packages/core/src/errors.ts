@@ -1,4 +1,8 @@
-import type { ToolError, ToolErrorCode } from "./types.js";
+import {
+  TOOL_ERROR_CODES,
+  type ToolError,
+  type ToolErrorCode,
+} from "./types.js";
 import { redactSensitiveText } from "./security/redaction.js";
 
 export class AgentError extends Error {
@@ -20,8 +24,21 @@ export class AgentError extends Error {
   }
 }
 
+function isAgentError(error: unknown): error is AgentError {
+  if (error instanceof AgentError) return true;
+  if (!(error instanceof Error) || error.name !== "AgentError") return false;
+  const candidate = error as Partial<AgentError>;
+  return (
+    typeof candidate.code === "string" &&
+    TOOL_ERROR_CODES.includes(candidate.code as ToolErrorCode) &&
+    typeof candidate.retryable === "boolean" &&
+    (candidate.remediation === undefined ||
+      typeof candidate.remediation === "string")
+  );
+}
+
 export function normalizeError(error: unknown): ToolError {
-  if (error instanceof AgentError) {
+  if (isAgentError(error)) {
     const sanitizedMessage = redactSensitiveText(error.message);
     return {
       code: error.code,

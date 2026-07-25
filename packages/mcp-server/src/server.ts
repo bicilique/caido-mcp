@@ -2,9 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { parseConfig } from "../../core/src/config.js";
-import { AuditLogger } from "../../core/src/security/audit-log.js";
-import { RateLimiter } from "../../core/src/security/rate-limit.js";
+import {
+  AuditLogger,
+  parseConfig,
+  RateLimiter,
+} from "@caido-agent-kit/core";
 import {
   toolsForMode,
   type RegistrationMode,

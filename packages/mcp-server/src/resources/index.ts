@@ -1,5 +1,7 @@
-import type { CaidoAdapter } from "../../../core/src/caido/adapter.js";
-import { successResult } from "../../../core/src/result.js";
+import {
+  successResult,
+  type CaidoAdapter,
+} from "@caido-agent-kit/core";
 import type { ResourceDefinition } from "./types.js";
 import { asRecord, secureRequestDetail } from "../tools/shared.js";
 

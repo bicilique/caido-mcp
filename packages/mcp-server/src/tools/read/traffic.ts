@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import type {
-  CaidoAdapter,
-  RequestDetail,
-} from "../../../../core/src/caido/adapter.js";
-import { successResult } from "../../../../core/src/result.js";
-import { fingerprintResponse } from "../../../../core/src/security/fingerprint.js";
-import { redactHeaders } from "../../../../core/src/security/redaction.js";
+import {
+  fingerprintResponse,
+  redactHeaders,
+  successResult,
+  type CaidoAdapter,
+  type RequestDetail,
+} from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
   arrayData,

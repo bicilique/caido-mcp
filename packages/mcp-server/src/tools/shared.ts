@@ -1,12 +1,15 @@
 import { z } from "zod";
 
-import type { RequestDetail } from "../../../core/src/caido/adapter.js";
-import { boundBody, type BoundedBody } from "../../../core/src/security/body-limits.js";
+import {
+  boundBody,
+  type BoundedBody,
+  type RequestDetail,
+} from "@caido-agent-kit/core";
 import {
   redactHeaders,
   redactSensitiveText,
   redactStructured,
-} from "../../../core/src/security/redaction.js";
+} from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../registry.js";
 
 export const readOnlyAnnotations: ToolDefinition["annotations"] = {
