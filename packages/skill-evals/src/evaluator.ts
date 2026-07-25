@@ -253,33 +253,44 @@ function narrativeClauses(document: string): NarrativeClause[] {
   const clauses: NarrativeClause[] = [];
   for (const markdownLine of document.split("\n")) {
     const trimmed = markdownLine.trim();
-    if (
-      trimmed.length === 0 ||
-      trimmed.startsWith("|") ||
-      trimmed.startsWith("```")
-    ) {
+    if (trimmed.length === 0 || trimmed.startsWith("```")) {
       continue;
     }
-    const line = trimmed
-      .replace(/^#{1,6}\s+/, "")
-      .replace(/^[-*]\s+/, "")
-      .replaceAll("`", "")
-      .replace(/read[_\s-]*only/gi, "read-only")
-      .replace(/\s+/g, " ")
-      .toLowerCase();
-    const context = {
-      trafficHistory: /\btraffic\b|\bhistor(?:y|ies)\b/.test(line),
-      replay: /\breplay\b/.test(line),
-      readOnly: /\bread-only\b/.test(line),
-      untrustedContent:
-        /\buntrusted\b[^]*(?:content|response|target)|(?:captured|response|target)[^]*content/.test(
-          line,
-        ),
-    };
-    for (const text of line.split(/[.!?;:]+/)) {
-      const clause = text.trim();
-      if (clause.length > 0) {
-        clauses.push({ text: clause, ...context });
+
+    const cells = trimmed.startsWith("|")
+      ? trimmed
+          .split("|")
+          .map((cell) => cell.trim())
+          .filter((cell) => cell.length > 0)
+      : [trimmed];
+
+    for (const cell of cells) {
+      const normalized = cell
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/^[-*]\s+/, "")
+        .replaceAll("`", "")
+        .replace(/read[_\s-]*only/gi, "read-only")
+        .replace(/tool[_\s-]*results?/gi, "tool-result")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+
+      for (const text of normalized.split(/[.!?;:]+/)) {
+        const clause = text.trim();
+        if (clause.length === 0 || /^:?-{3,}:?$/.test(clause)) {
+          continue;
+        }
+        const capturedContext =
+          /\bcaptur(?:e|ed|ing)\b/.test(clause) &&
+          /\b(?:responses?|requests?|traffic|contents?|outputs?|tool-results?)\b/.test(
+            clause,
+          );
+        clauses.push({
+          text: clause,
+          trafficHistory: /\btraffic\b|\bhistor(?:y|ies)\b/.test(clause),
+          replay: /\breplay\b/.test(clause),
+          readOnly: /\bread-only\b/.test(clause),
+          untrustedContent: /\buntrusted\b/.test(clause) || capturedContext,
+        });
       }
     }
   }
