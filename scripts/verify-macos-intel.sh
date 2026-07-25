@@ -33,6 +33,7 @@ dependency_result=$(node "$root/scripts/verify-installed-packages.mjs" "$store")
   fail "installed dependency verification failed."
 
 temp_root=$(mktemp -d "${TMPDIR:-/tmp}/caido agent kit.XXXXXX")
+chmod 700 "$temp_root"
 trap 'rm -rf "$temp_root"' EXIT HUP INT TERM
 spaced_server="$temp_root/server path with spaces.js"
 ln -s "$server" "$spaced_server"
