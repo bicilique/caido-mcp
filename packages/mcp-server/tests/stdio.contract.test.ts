@@ -68,7 +68,7 @@ describe("stdio entrypoint", () => {
     directories.push(directory);
     const auditPath = join(directory, "audit log.jsonl");
     const tokenPath = join(directory, "token cache.json");
-    const entrypoint = resolve("packages/mcp-server/dist/cli.js");
+    const entrypoint = resolve("packages/mcp-server/dist/index.js");
     expect(isAbsolute(entrypoint)).toBe(true);
 
     const child = spawn(process.execPath, [entrypoint], {
