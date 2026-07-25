@@ -229,6 +229,8 @@ function boundaryError(
           ? response.status
           : undefined;
   const code = typeof record?.code === "string" ? record.code : undefined;
+  const reason =
+    typeof record?.reason === "string" ? record.reason : undefined;
   const isNotFound =
     error instanceof NotFoundUserError ||
     constructorName === "NotFoundUserError" ||
@@ -242,23 +244,36 @@ function boundaryError(
       false,
     );
   }
-  const isAuthenticationFailure =
+  const isAuthorizationError =
     error instanceof AuthorizationUserError ||
-    error instanceof PermissionDeniedUserError ||
-    error instanceof TokenRefreshError ||
     constructorName === "AuthorizationUserError" ||
+    typeName === "AuthorizationUserError";
+  const isPermissionFailure =
+    error instanceof PermissionDeniedUserError ||
     constructorName === "PermissionDeniedUserError" ||
-    constructorName === "TokenRefreshError" ||
-    typeName === "AuthorizationUserError" ||
     typeName === "PermissionDeniedUserError" ||
+    (isAuthorizationError &&
+      (reason === "FORBIDDEN" || reason === "MISSING_SCOPE")) ||
+    status === 403;
+  if (isPermissionFailure) {
+    return new AgentError(
+      "AUTH_FAILED",
+      "Caido denied authorization because the caller lacks a required permission.",
+      false,
+      "Request the required permission or access scope from a Caido administrator.",
+    );
+  }
+  const isAuthenticationFailure =
+    (isAuthorizationError && reason === "INVALID_TOKEN") ||
+    error instanceof TokenRefreshError ||
+    constructorName === "TokenRefreshError" ||
     typeName === "TokenRefreshError" ||
     ((error instanceof NetworkUserError ||
       constructorName === "NetworkUserError" ||
       typeName === "NetworkUserError") &&
       error instanceof Error &&
       error.message === "A network error occured: Unauthorized") ||
-    status === 401 ||
-    status === 403;
+    status === 401;
   if (isAuthenticationFailure) {
     return new AgentError(
       "AUTH_FAILED",

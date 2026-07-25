@@ -3,6 +3,7 @@ import {
   AuthorizationUserError,
   NotFoundUserError,
   OperationUserError,
+  PermissionDeniedUserError,
 } from "@caido/sdk-client";
 
 import { AgentError } from "../../src/errors.js";
@@ -726,6 +727,37 @@ describe("SdkCaidoAdapter", () => {
     );
   });
 
+  it.each([
+    [
+      "official OperationUserError",
+      new OperationUserError({
+        message: "[GraphQL] invalid HTTPQL expression syntax",
+      } as ConstructorParameters<typeof OperationUserError>[0]),
+    ],
+    [
+      "structured HTTPQL error code",
+      Object.assign(new Error("filtered request failed"), {
+        code: "INVALID_HTTPQL",
+      }),
+    ],
+  ])("maps explicit invalid HTTPQL from %s", async (_name, boundaryFailure) => {
+    const { adapter, requestBuilder } = sdkFixture();
+    requestBuilder.failure = boundaryFailure;
+
+    await expect(
+      adapter.listRequests({
+        httpql: 'req.host.eq:"unterminated',
+        direction: "descending",
+        limit: 10,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "INVALID_HTTPQL",
+        retryable: false,
+      }),
+    );
+  });
+
   it("does not infer not-found from a generic gateway message", async () => {
     const { adapter, client } = sdkFixture();
     client.project.select = async () => {
@@ -739,6 +771,96 @@ describe("SdkCaidoAdapter", () => {
       }),
     );
   });
+
+  it.each([
+    [
+      "__typename RequestNotFoundUserError",
+      { __typename: "RequestNotFoundUserError" },
+    ],
+    [
+      "numeric HTTP status 404",
+      Object.assign(new Error("resource lookup failed"), { status: 404 }),
+    ],
+  ])("maps exact not-found evidence from %s", async (_name, boundaryFailure) => {
+    const { adapter, client } = sdkFixture();
+    client.project.select = async () => {
+      throw boundaryFailure;
+    };
+
+    await expect(adapter.selectProject("missing-project")).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "NOT_FOUND",
+        retryable: false,
+      }),
+    );
+  });
+
+  it("keeps invalid-token failures on credential remediation", async () => {
+    const { adapter, client } = sdkFixture();
+    client.project.select = async () => {
+      throw new AuthorizationUserError({
+        reason: "INVALID_TOKEN",
+      } as ConstructorParameters<typeof AuthorizationUserError>[0]);
+    };
+
+    await expect(adapter.selectProject("project-1")).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "AUTH_FAILED",
+        message: expect.stringMatching(/credential/i),
+        remediation: expect.stringMatching(/token|credential/i),
+        retryable: false,
+      }),
+    );
+  });
+
+  it.each([
+    [
+      "PermissionDeniedUserError",
+      new PermissionDeniedUserError(),
+    ],
+    [
+      "AuthorizationUserError FORBIDDEN",
+      new AuthorizationUserError({
+        reason: "FORBIDDEN",
+      } as ConstructorParameters<typeof AuthorizationUserError>[0]),
+    ],
+    [
+      "AuthorizationUserError MISSING_SCOPE",
+      new AuthorizationUserError({
+        reason: "MISSING_SCOPE",
+      } as ConstructorParameters<typeof AuthorizationUserError>[0]),
+    ],
+    [
+      "numeric HTTP status 403",
+      Object.assign(new Error("request denied"), { statusCode: 403 }),
+    ],
+  ])(
+    "uses permission-neutral guidance for %s",
+    async (_name, boundaryFailure) => {
+      const { adapter, client } = sdkFixture();
+      client.project.select = async () => {
+        throw boundaryFailure;
+      };
+
+      let failure: AgentError | undefined;
+      try {
+        await adapter.selectProject("project-1");
+      } catch (error) {
+        failure = error as AgentError;
+      }
+      expect(failure).toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "AUTH_FAILED",
+          message: expect.stringMatching(/authorization|permission/i),
+          remediation: expect.stringMatching(/permission|access/i),
+          retryable: false,
+        }),
+      );
+      expect(`${failure?.message} ${failure?.remediation}`).not.toMatch(
+        /credential|token|refresh/i,
+      );
+    },
+  );
 
   it("preserves the deterministic Replay status failure", async () => {
     const { adapter, client } = sdkFixture();
