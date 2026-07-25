@@ -230,6 +230,14 @@ function sdkFixture() {
           updatedAt: new Date("2026-07-25T00:00:00.000Z"),
         },
       ],
+      run: async (input: {
+        kind: "active";
+        id: string;
+        requestId: string;
+      }) => {
+        events.push(`run-workflow:${input.id}:${input.requestId}`);
+        return { id: "workflow-task-1" };
+      },
     },
     filter: {
       list: async () => [
@@ -430,6 +438,18 @@ describe("SdkCaidoAdapter", () => {
     ]);
   });
 
+  it("runs one active workflow against one explicit request ID", async () => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(
+      adapter.runWorkflow("workflow-1", "request-1"),
+    ).resolves.toEqual({
+      requestIds: ["request-1"],
+      mutation: "run_workflow",
+    });
+    expect(events).toEqual(["run-workflow:workflow-1:request-1"]);
+  });
+
   it.each([
     [
       "create severity property",
@@ -560,7 +580,6 @@ describe("SdkCaidoAdapter", () => {
   it.each([
     ["listSitemap", (adapter: SdkCaidoAdapter) => adapter.listSitemap(3, 20)],
     ["setIntercept", (adapter: SdkCaidoAdapter) => adapter.setIntercept(true)],
-    ["runWorkflow", (adapter: SdkCaidoAdapter) => adapter.runWorkflow("workflow-1")],
   ])("returns a typed error when %s lacks required SDK inputs", async (_name, call) => {
     const { adapter } = sdkFixture();
 

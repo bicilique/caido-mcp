@@ -140,7 +140,14 @@ export interface CaidoSdkClient {
       readonly error?: { readonly code: string };
     }>;
   };
-  readonly workflow: { list(): Promise<Workflow[]> };
+  readonly workflow: {
+    list(): Promise<Workflow[]>;
+    run(input: {
+      kind: "active";
+      id: string;
+      requestId: string;
+    }): Promise<{ readonly id: string }>;
+  };
   readonly filter: { list(): Promise<FilterPreset[]> };
   close?(): Promise<void>;
   disconnect?(): Promise<void>;
@@ -555,8 +562,20 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     throw unavailable("Intercept control");
   }
 
-  async runWorkflow(_id: string): Promise<never> {
-    throw unavailable("Workflow execution without required SDK input");
+  async runWorkflow(
+    id: string,
+    requestId: string,
+  ): Promise<MutationEvidence> {
+    this.#ready();
+    await this.#client.workflow.run({
+      kind: "active",
+      id,
+      requestId,
+    });
+    return {
+      requestIds: [requestId],
+      mutation: "run_workflow",
+    };
   }
 
   async close(): Promise<void> {

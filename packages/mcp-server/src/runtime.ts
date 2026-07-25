@@ -21,6 +21,7 @@ import { createToolExecutor } from "./execution/pipeline.js";
 import { promptDefinitions } from "./prompts/index.js";
 import { createReadOnlyResources } from "./resources/index.js";
 import { createServer } from "./server.js";
+import { createActiveTools } from "./tools/active/index.js";
 import { createReadOnlyTools } from "./tools/read/index.js";
 import type { ToolDefinition } from "./registry.js";
 
@@ -137,7 +138,7 @@ const productionDependencies: RuntimeDependencies = {
       await client.disconnect();
     }
   },
-  createActiveTools: () => [],
+  createActiveTools,
 };
 
 export interface Runtime {

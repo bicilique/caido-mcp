@@ -138,6 +138,6 @@ export interface CaidoAdapter {
     input: Partial<Omit<FindingDetail, "id">>,
   ): Promise<MutationEvidence>;
   setIntercept(enabled: boolean): Promise<MutationEvidence>;
-  runWorkflow(id: string): Promise<MutationEvidence>;
+  runWorkflow(id: string, requestId: string): Promise<MutationEvidence>;
   close(): Promise<void>;
 }

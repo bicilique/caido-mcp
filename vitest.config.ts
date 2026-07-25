@@ -24,6 +24,24 @@ export default defineConfig({
           environment: "node",
         },
       },
+      {
+        test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 5_000,
+          hookTimeout: 5_000,
+        },
+      },
+      {
+        test: {
+          name: "e2e",
+          include: ["tests/e2e/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 30_000,
+          hookTimeout: 10_000,
+        },
+      },
     ],
     coverage: {
       provider: "v8",
