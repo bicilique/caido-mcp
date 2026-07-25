@@ -10,6 +10,13 @@ export default defineConfig({
           environment: "node",
         },
       },
+      {
+        test: {
+          name: "contract",
+          include: ["packages/*/tests/**/*.contract.test.ts"],
+          environment: "node",
+        },
+      },
     ],
     coverage: {
       provider: "v8",
