@@ -3,7 +3,11 @@ import type { CaidoAdapter } from "@caido-agent-kit/core";
 import { z } from "zod";
 
 import type { ToolDefinition } from "../../registry.js";
-import { asRecord, objectData, resultSchema } from "../shared.js";
+import {
+  asRecord,
+  MutationDataSchema,
+  resultSchema,
+} from "../shared.js";
 import {
   activeAnnotations,
   mutationData,
@@ -24,7 +28,7 @@ export function managementTools(
       inputSchema: z.strictObject({
         projectId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(false, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -53,7 +57,7 @@ export function managementTools(
         description: z.string().max(options.bodyLimit),
         requestId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(false, false, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -81,7 +85,7 @@ export function managementTools(
         title: z.string().trim().min(1).max(256),
         description: z.string().max(options.bodyLimit),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(true, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -107,7 +111,7 @@ export function managementTools(
         "Sets Caido Intercept to one explicit enabled state and returns mutation evidence. The installed production SDK may return TOOL_DISABLED because it does not expose Intercept control. It never retries automatically.",
       mode: "active",
       inputSchema: z.strictObject({ enabled: z.boolean() }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(true, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -130,7 +134,7 @@ export function managementTools(
         workflowId: z.string().min(1).max(256),
         requestId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);

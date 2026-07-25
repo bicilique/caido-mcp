@@ -10,12 +10,14 @@ import {
 } from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
-  arrayData,
   asRecord,
-  objectData,
   readOnlyAnnotations,
+  RequestDetailSchema,
+  RequestSummarySchema,
+  ResponseComparisonSchema,
   resultSchema,
   secureRequestDetail,
+  SitemapNodeSchema,
 } from "../shared.js";
 
 function secureRequestSummary(request: RequestSummary): RequestSummary {
@@ -56,7 +58,12 @@ export function trafficTools(
         direction: z.enum(["ascending", "descending"]).default("descending"),
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(
+        z.strictObject({
+          items: z.array(RequestSummarySchema),
+          nextCursor: z.string().optional(),
+        }),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const page = await adapter.listRequests(input as {
@@ -87,7 +94,7 @@ export function trafficTools(
       inputSchema: z.strictObject({
         requestIds: z.array(z.string().min(1)).min(1).max(maxBatch),
       }),
-      outputSchema: resultSchema(arrayData),
+      outputSchema: resultSchema(z.array(RequestDetailSchema)),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = input.requestIds as string[];
@@ -114,7 +121,7 @@ export function trafficTools(
         leftRequestId: z.string().min(1),
         rightRequestId: z.string().min(1),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(ResponseComparisonSchema),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = [
@@ -158,7 +165,7 @@ export function trafficTools(
         depth: z.number().int().min(1).max(10).default(3),
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
-      outputSchema: resultSchema(arrayData),
+      outputSchema: resultSchema(z.array(SitemapNodeSchema)),
       annotations: readOnlyAnnotations,
       handler: async (input) =>
         asRecord(

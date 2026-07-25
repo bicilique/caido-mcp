@@ -3,7 +3,11 @@ import type { CaidoAdapter, RawMessage } from "@caido-agent-kit/core";
 import { z } from "zod";
 
 import type { ToolDefinition } from "../../registry.js";
-import { asRecord, objectData, resultSchema } from "../shared.js";
+import {
+  asRecord,
+  MutationDataSchema,
+  resultSchema,
+} from "../shared.js";
 import {
   activeAnnotations,
   mutationData,
@@ -42,7 +46,7 @@ export function networkTools(
         body: z.string().max(options.bodyLimit),
         contentType: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -96,7 +100,7 @@ export function networkTools(
         headers,
         body: z.string().max(options.bodyLimit).optional(),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(MutationDataSchema),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);
