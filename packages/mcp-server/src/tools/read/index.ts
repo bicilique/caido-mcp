@@ -1,4 +1,4 @@
-import type { CaidoAdapter } from "../../../../core/src/caido/adapter.js";
+import type { CaidoAdapter } from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import { knowledgeTools } from "./knowledge.js";
 import { projectTools } from "./project.js";
@@ -16,6 +16,6 @@ export function createReadOnlyTools(
   return [
     ...projectTools(adapter, options.maxBatch),
     ...trafficTools(adapter, options.bodyLimit, options.maxBatch),
-    ...knowledgeTools(adapter, options.maxBatch),
+    ...knowledgeTools(adapter, options.bodyLimit, options.maxBatch),
   ];
 }

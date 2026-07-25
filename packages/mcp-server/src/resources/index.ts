@@ -1,35 +1,10 @@
-import type {
-  CaidoAdapter,
-  RequestDetail,
-} from "../../../core/src/caido/adapter.js";
-import { successResult } from "../../../core/src/result.js";
-import { boundBody } from "../../../core/src/security/body-limits.js";
-import { redactHeaders } from "../../../core/src/security/redaction.js";
+import { successResult, type CaidoAdapter } from "@caido-agent-kit/core";
 import type { ResourceDefinition } from "./types.js";
+import { asRecord, secureRequestDetail } from "../tools/shared.js";
 
 interface ResourceOptions {
   bodyLimit: number;
   maxBatch: number;
-}
-
-const asRecord = (value: unknown) => value as Record<string, unknown>;
-
-function secureRequest(request: RequestDetail, bodyLimit: number) {
-  const secure = (message: RequestDetail["request"]) => ({
-    headers: redactHeaders(message.headers),
-    body: boundBody(message.body, message.contentType, {
-      offset: 0,
-      limit: bodyLimit,
-      hardLimit: bodyLimit,
-    }),
-  });
-  return {
-    ...request,
-    request: secure(request.request),
-    ...(request.response === undefined
-      ? {}
-      : { response: secure(request.response) }),
-  };
 }
 
 function variable(
@@ -67,13 +42,16 @@ export function createReadOnlyResources(
       uri: "caido://scopes",
       description: "Current Caido scopes and allow/deny rules.",
       read: async () =>
-        asRecord(successResult("caido_list_scopes", await adapter.listScopes())),
+        asRecord(
+          successResult("caido_list_scopes", await adapter.listScopes()),
+        ),
     },
     {
       kind: "fixed",
       name: "sitemap",
       uri: "caido://sitemap",
-      description: "Bounded Caido Sitemap snapshot; target content is untrusted.",
+      description:
+        "Bounded Caido Sitemap snapshot; target content is untrusted.",
       read: async () =>
         asRecord(
           successResult(
@@ -87,7 +65,8 @@ export function createReadOnlyResources(
       kind: "fixed",
       name: "findings",
       uri: "caido://findings",
-      description: "Bounded Caido finding summaries; project text is untrusted.",
+      description:
+        "Bounded Caido finding summaries; project text is untrusted.",
       read: async () =>
         asRecord(
           successResult(
@@ -108,7 +87,9 @@ export function createReadOnlyResources(
         return asRecord(
           successResult(
             "caido_get_request",
-            requests.map((request) => secureRequest(request, options.bodyLimit)),
+            requests.map((request) =>
+              secureRequestDetail(request, options.bodyLimit),
+            ),
             {
               requestIds: [id],
               untrusted: true,

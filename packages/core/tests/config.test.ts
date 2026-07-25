@@ -66,8 +66,6 @@ describe("parseConfig", () => {
     ["CAIDO_REQUEST_TIMEOUT_MS", "120001"],
     ["CAIDO_MAX_BATCH", "1.5"],
   ])("rejects unsafe numeric bound %s=%s", (name, value) => {
-    expect(() => parseConfig({ [name]: value })).toThrow(
-      new RegExp(name),
-    );
+    expect(() => parseConfig({ [name]: value })).toThrow(new RegExp(name));
   });
 });

@@ -18,7 +18,10 @@ export function createTestAdapter(
     listFilters: async () => ({ items: [] }),
     selectProject: async () => ({ requestIds: [], mutation: "select_project" }),
     replayRequest: async () => ({ requestIds: [], mutation: "replay_request" }),
-    sendRawRequest: async () => ({ requestIds: [], mutation: "send_raw_request" }),
+    sendRawRequest: async () => ({
+      requestIds: [],
+      mutation: "send_raw_request",
+    }),
     createFinding: async () => ({ requestIds: [], mutation: "create_finding" }),
     updateFinding: async () => ({ requestIds: [], mutation: "update_finding" }),
     setIntercept: async () => ({ requestIds: [], mutation: "set_intercept" }),

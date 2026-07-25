@@ -1,7 +1,26 @@
+# Dependencies and generated output
 node_modules/
+.pnpm-store/
 dist/
 coverage/
-.env
-*.log
-.DS_Store
+*.tsbuildinfo
+
+# Environment and local credentials
+.env*
+!.env.example
+.caido-agent/
+
+# Local tools and IDEs
 .worktrees/
+.serena/
+.idea/
+.vscode/
+
+# Operating-system and editor files
+.DS_Store
+*.log
+*.swp
+*.swo
+*~
+tmp/
+temp/

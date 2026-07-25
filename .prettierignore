@@ -1,0 +1,9 @@
+node_modules/
+**/dist/
+coverage/
+.serena/
+.superpowers/
+docs/superpowers/
+pnpm-lock.yaml
+skills/caido-operator/references/tool-selection.md
+*.log

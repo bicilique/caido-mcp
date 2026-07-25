@@ -1,19 +1,22 @@
 import { z } from "zod";
 
-import type { CaidoAdapter } from "../../../../core/src/caido/adapter.js";
-import { successResult } from "../../../../core/src/result.js";
 import {
+  successResult,
+  type CaidoAdapter,
   evaluateScope,
   normalizeTarget,
-} from "../../../../core/src/security/scope-guard.js";
+} from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
-  arrayData,
   asRecord,
+  HealthDataSchema,
   listInput,
-  objectData,
+  pageSchema,
+  ProjectSummarySchema,
   readOnlyAnnotations,
   resultSchema,
+  ScopeDecisionSchema,
+  ScopeSummarySchema,
 } from "../shared.js";
 
 export function projectTools(
@@ -27,7 +30,7 @@ export function projectTools(
         "Checks Caido reachability, authentication, version, and current project. Use before other Caido operations; it performs no mutation and returns no credentials.",
       mode: "read-only",
       inputSchema: z.strictObject({}),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema("caido_health", HealthDataSchema),
       annotations: readOnlyAnnotations,
       handler: async () =>
         asRecord(successResult("caido_health", await adapter.health())),
@@ -38,7 +41,10 @@ export function projectTools(
         "Returns the selected Caido project. Use to establish evidence context; it has no side effects.",
       mode: "read-only",
       inputSchema: z.strictObject({}),
-      outputSchema: resultSchema(objectData.nullable()),
+      outputSchema: resultSchema(
+        "caido_get_current_project",
+        ProjectSummarySchema.nullable(),
+      ),
       annotations: readOnlyAnnotations,
       handler: async () =>
         asRecord(
@@ -54,13 +60,18 @@ export function projectTools(
         "Lists Caido projects with bounded pagination. Use to identify a project; it does not select or modify one.",
       mode: "read-only",
       inputSchema: listInput(maxBatch),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(
+        "caido_list_projects",
+        pageSchema(ProjectSummarySchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) =>
         asRecord(
           successResult(
             "caido_list_projects",
-            await adapter.listProjects(input as { cursor?: string; limit: number }),
+            await adapter.listProjects(
+              input as { cursor?: string; limit: number },
+            ),
           ),
         ),
     },
@@ -70,10 +81,15 @@ export function projectTools(
         "Lists Caido scopes and allow/deny rules. Use before active testing; it sends no traffic.",
       mode: "read-only",
       inputSchema: z.strictObject({}),
-      outputSchema: resultSchema(arrayData),
+      outputSchema: resultSchema(
+        "caido_list_scopes",
+        z.array(ScopeSummarySchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async () =>
-        asRecord(successResult("caido_list_scopes", await adapter.listScopes())),
+        asRecord(
+          successResult("caido_list_scopes", await adapter.listScopes()),
+        ),
     },
     {
       name: "caido_is_in_scope",
@@ -81,7 +97,7 @@ export function projectTools(
         "Evaluates one URL against the selected Caido scope without sending traffic. Use before proposing an active request.",
       mode: "read-only",
       inputSchema: z.strictObject({ url: z.url().max(4096) }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema("caido_is_in_scope", ScopeDecisionSchema),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const scopes = await adapter.listScopes();

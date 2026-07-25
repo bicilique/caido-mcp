@@ -24,25 +24,27 @@ describe("read-only resources", () => {
       }),
     });
     const client = new Client({ name: "contract", version: "1.0.0" });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
 
     try {
-      expect((await client.listResources()).resources.map((item) => item.uri).sort())
-        .toEqual([
-          "caido://findings",
-          "caido://project",
-          "caido://scopes",
-          "caido://sitemap",
-        ]);
+      expect(
+        (await client.listResources()).resources.map((item) => item.uri).sort(),
+      ).toEqual([
+        "caido://findings",
+        "caido://project",
+        "caido://scopes",
+        "caido://sitemap",
+      ]);
       expect(
         (await client.listResourceTemplates()).resourceTemplates
           .map((item) => item.uriTemplate)
           .sort(),
-      ).toEqual([
-        "caido://replay-sessions/{id}",
-        "caido://requests/{id}",
-      ]);
+      ).toEqual(["caido://replay-sessions/{id}", "caido://requests/{id}"]);
 
       const project = await client.readResource({ uri: "caido://project" });
       expect(project.contents).toEqual([
@@ -57,6 +59,56 @@ describe("read-only resources", () => {
           }),
         },
       ]);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("uses the shared serializer for JSON request resource evidence", async () => {
+    const adapter = createTestAdapter({
+      getRequests: async () => [
+        {
+          id: "request-resource",
+          method: "GET",
+          host: "example.test",
+          path: "/resource",
+          scheme: "https",
+          port: 443,
+          requestLength: 40,
+          responseLength: 0,
+          createdAt: "2026-07-25T00:00:00.000Z",
+          request: {
+            headers: [],
+            contentType: "application/json",
+            body: new TextEncoder().encode('{"token":"resource-token-secret"}'),
+          },
+        },
+      ],
+    });
+    const server = createServer({
+      mode: "read-only",
+      tools: [],
+      resources: createReadOnlyResources(adapter, {
+        bodyLimit: 4096,
+        maxBatch: 20,
+      }),
+    });
+    const client = new Client({ name: "contract", version: "1.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    try {
+      const result = await client.readResource({
+        uri: "caido://requests/request-resource",
+      });
+      expect(JSON.stringify(result.contents)).not.toContain(
+        "resource-token-secret",
+      );
     } finally {
       await client.close();
       await server.close();

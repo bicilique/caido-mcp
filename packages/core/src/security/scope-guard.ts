@@ -17,14 +17,17 @@ export interface ScopeRule {
 
 export interface ScopeDecision {
   allowed: boolean;
-  reason: "matched_allow" | "matched_deny" | "no_matching_allow" | "no_selected_scope";
+  reason:
+    | "matched_allow"
+    | "matched_deny"
+    | "no_matching_allow"
+    | "no_selected_scope";
   matchedRule?: ScopeRule;
 }
 
 function normalizeHost(host: string): string {
-  const unwrapped = host.startsWith("[") && host.endsWith("]")
-    ? host.slice(1, -1)
-    : host;
+  const unwrapped =
+    host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
   const withoutTrailingDot = unwrapped.replace(/\.+$/, "").toLowerCase();
   if (isIP(withoutTrailingDot) !== 0) {
     return withoutTrailingDot;
@@ -47,16 +50,15 @@ export function normalizeTarget(input: string): NormalizedTarget {
     throw new Error("Invalid target protocol; expected HTTP or HTTPS.");
   }
   if (parsed.username.length > 0 || parsed.password.length > 0) {
-    throw new Error("Invalid target URL; embedded credentials are not allowed.");
+    throw new Error(
+      "Invalid target URL; embedded credentials are not allowed.",
+    );
   }
 
   const scheme = parsed.protocol.slice(0, -1) as "http" | "https";
   const host = normalizeHost(parsed.hostname);
-  const port = parsed.port === ""
-    ? scheme === "https"
-      ? 443
-      : 80
-    : Number(parsed.port);
+  const port =
+    parsed.port === "" ? (scheme === "https" ? 443 : 80) : Number(parsed.port);
 
   if (isIP(host) === 0) {
     parsed.hostname = host;

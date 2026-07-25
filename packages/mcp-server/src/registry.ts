@@ -3,6 +3,11 @@ import type { z } from "zod";
 
 export type RegistrationMode = "read-only" | "active" | "admin";
 
+export type ToolHandler = (
+  input: Record<string, unknown>,
+  signal: AbortSignal,
+) => Promise<Record<string, unknown>>;
+
 export interface ToolDefinition {
   name: `caido_${string}`;
   description: string;
@@ -15,10 +20,7 @@ export interface ToolDefinition {
       "readOnlyHint" | "destructiveHint" | "idempotentHint" | "openWorldHint"
     >
   >;
-  handler(
-    input: Record<string, unknown>,
-    signal: AbortSignal,
-  ): Promise<Record<string, unknown>>;
+  handler: ToolHandler;
 }
 
 export function toolsForMode(

@@ -20,7 +20,7 @@ export interface RequestSummary {
   scheme: "http" | "https";
   port: number;
   statusCode?: number;
-  requestLength: number;
+  requestLength?: number;
   responseLength?: number;
   createdAt: string;
 }
@@ -60,6 +60,12 @@ export interface FindingSummary {
 export interface FindingDetail extends FindingSummary {
   description: string;
   evidence: string;
+}
+
+export interface CreateFindingInput {
+  title: string;
+  description: string;
+  requestId: string;
 }
 
 export interface ReplaySessionSummary {
@@ -126,12 +132,12 @@ export interface CaidoAdapter {
   selectProject(id: string): Promise<MutationEvidence>;
   replayRequest(requestId: string, raw: RawMessage): Promise<MutationEvidence>;
   sendRawRequest(input: RawRequestInput): Promise<MutationEvidence>;
-  createFinding(input: Omit<FindingDetail, "id">): Promise<MutationEvidence>;
+  createFinding(input: CreateFindingInput): Promise<MutationEvidence>;
   updateFinding(
     id: string,
     input: Partial<Omit<FindingDetail, "id">>,
   ): Promise<MutationEvidence>;
   setIntercept(enabled: boolean): Promise<MutationEvidence>;
-  runWorkflow(id: string): Promise<MutationEvidence>;
+  runWorkflow(id: string, requestId: string): Promise<MutationEvidence>;
   close(): Promise<void>;
 }

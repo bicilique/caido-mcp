@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Enable pinned pnpm
+        run: corepack enable
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Formatting
+        run: pnpm format:check
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build required runtime artifacts
+        run: pnpm build
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Contract tests
+        run: pnpm test:contract
+      - name: Integration tests
+        run: pnpm test:integration
+      - name: Skill validation
+        run: pnpm test:skill
+      - name: Safety evaluation
+        run: pnpm eval:skill
+      - name: Documentation contracts
+        run: pnpm test:docs
+      - name: Generated-file drift
+        run: pnpm check:generated
+      - name: Coverage
+        run: pnpm coverage
+      - name: High-severity dependency audit
+        run: pnpm audit:high
+      - name: Secret scan
+        run: pnpm scan:secrets
+      - name: License inventory
+        run: pnpm license:inventory
+      - name: Intel evidence boundary
+        run: echo "Hosted Linux or macOS arm64 does not prove macOS Intel compatibility; release requires local scripts/verify-macos-intel.sh evidence."

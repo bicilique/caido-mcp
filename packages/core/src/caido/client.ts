@@ -20,6 +20,8 @@ export interface ConnectableCaidoClient {
   health(): Promise<CaidoHealth>;
 }
 
+export type ProductionCaidoClient = Client;
+
 const silentLogger: Logger = {
   debug: () => undefined,
   info: () => undefined,

@@ -1,37 +1,43 @@
 import { z } from "zod";
 
-import type {
-  CaidoAdapter,
-  RequestDetail,
-} from "../../../../core/src/caido/adapter.js";
-import { successResult } from "../../../../core/src/result.js";
-import { boundBody } from "../../../../core/src/security/body-limits.js";
-import { fingerprintResponse } from "../../../../core/src/security/fingerprint.js";
-import { redactHeaders } from "../../../../core/src/security/redaction.js";
+import {
+  fingerprintResponse,
+  redactHeaders,
+  successResult,
+  type CaidoAdapter,
+  type RequestDetail,
+  type RequestSummary,
+} from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
-  arrayData,
   asRecord,
-  objectData,
   readOnlyAnnotations,
+  RequestDetailSchema,
+  RequestSummarySchema,
+  ResponseComparisonSchema,
   resultSchema,
+  secureRequestDetail,
+  SitemapNodeSchema,
 } from "../shared.js";
 
-function secureRequest(request: RequestDetail, bodyLimit: number) {
-  const secureMessage = (message: RequestDetail["request"]) => ({
-    headers: redactHeaders(message.headers),
-    body: boundBody(message.body, message.contentType, {
-      offset: 0,
-      limit: bodyLimit,
-      hardLimit: bodyLimit,
-    }),
-  });
+function secureRequestSummary(request: RequestSummary): RequestSummary {
   return {
-    ...request,
-    request: secureMessage(request.request),
-    ...(request.response === undefined
+    id: request.id,
+    method: request.method,
+    host: request.host,
+    path: request.path.split("?", 1)[0] ?? "",
+    scheme: request.scheme,
+    port: request.port,
+    ...(request.statusCode === undefined
       ? {}
-      : { response: secureMessage(request.response) }),
+      : { statusCode: request.statusCode }),
+    ...(request.requestLength === undefined
+      ? {}
+      : { requestLength: request.requestLength }),
+    ...(request.responseLength === undefined
+      ? {}
+      : { responseLength: request.responseLength }),
+    createdAt: request.createdAt,
   };
 }
 
@@ -52,21 +58,36 @@ export function trafficTools(
         direction: z.enum(["ascending", "descending"]).default("descending"),
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(
+        "caido_list_requests",
+        z.strictObject({
+          items: z.array(RequestSummarySchema),
+          nextCursor: z.string().optional(),
+        }),
+      ),
       annotations: readOnlyAnnotations,
-      handler: async (input) =>
-        asRecord(
+      handler: async (input) => {
+        const page = await adapter.listRequests(
+          input as {
+            httpql?: string;
+            cursor?: string;
+            direction: "ascending" | "descending";
+            limit: number;
+          },
+        );
+        return asRecord(
           successResult(
             "caido_list_requests",
-            await adapter.listRequests(input as {
-              httpql?: string;
-              cursor?: string;
-              direction: "ascending" | "descending";
-              limit: number;
-            }),
+            {
+              items: page.items.map(secureRequestSummary),
+              ...(page.nextCursor === undefined
+                ? {}
+                : { nextCursor: page.nextCursor }),
+            },
             { untrusted: true, source: "caido_http_traffic" },
           ),
-        ),
+        );
+      },
     },
     {
       name: "caido_get_request",
@@ -76,7 +97,10 @@ export function trafficTools(
       inputSchema: z.strictObject({
         requestIds: z.array(z.string().min(1)).min(1).max(maxBatch),
       }),
-      outputSchema: resultSchema(arrayData),
+      outputSchema: resultSchema(
+        "caido_get_request",
+        z.array(RequestDetailSchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = input.requestIds as string[];
@@ -84,7 +108,7 @@ export function trafficTools(
         return asRecord(
           successResult(
             "caido_get_request",
-            requests.map((request) => secureRequest(request, bodyLimit)),
+            requests.map((request) => secureRequestDetail(request, bodyLimit)),
             {
               requestIds: ids,
               untrusted: true,
@@ -103,7 +127,10 @@ export function trafficTools(
         leftRequestId: z.string().min(1),
         rightRequestId: z.string().min(1),
       }),
-      outputSchema: resultSchema(objectData),
+      outputSchema: resultSchema(
+        "caido_diff_responses",
+        ResponseComparisonSchema,
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = [
@@ -147,13 +174,19 @@ export function trafficTools(
         depth: z.number().int().min(1).max(10).default(3),
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
-      outputSchema: resultSchema(arrayData),
+      outputSchema: resultSchema(
+        "caido_list_sitemap",
+        z.array(SitemapNodeSchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) =>
         asRecord(
           successResult(
             "caido_list_sitemap",
-            await adapter.listSitemap(input.depth as number, input.limit as number),
+            await adapter.listSitemap(
+              input.depth as number,
+              input.limit as number,
+            ),
             { untrusted: true, source: "caido_http_traffic" },
           ),
         ),

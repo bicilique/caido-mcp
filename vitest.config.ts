@@ -20,7 +20,35 @@ export default defineConfig({
       {
         test: {
           name: "contract",
-          include: ["packages/*/tests/**/*.contract.test.ts"],
+          include: [
+            "packages/*/tests/**/*.contract.test.ts",
+            "tests/contract/**/*.contract.test.ts",
+          ],
+          environment: "node",
+        },
+      },
+      {
+        test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 5_000,
+          hookTimeout: 5_000,
+        },
+      },
+      {
+        test: {
+          name: "e2e",
+          include: ["tests/e2e/**/*.test.ts"],
+          environment: "node",
+          testTimeout: 30_000,
+          hookTimeout: 10_000,
+        },
+      },
+      {
+        test: {
+          name: "docs",
+          include: ["tests/docs/**/*.test.ts"],
           environment: "node",
         },
       },

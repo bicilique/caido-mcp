@@ -1,11 +1,22 @@
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdtemp,
+  readFile,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuditLogger } from "../../src/security/audit-log.js";
 import { removeTestDirectory } from "../support/filesystem.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, appendFile: vi.fn(actual.appendFile) };
+});
 
 const directories: string[] = [];
 
@@ -20,6 +31,34 @@ afterEach(async () => {
 });
 
 describe("AuditLogger", () => {
+  it("durably flushes an appended event before record resolves", async () => {
+    const directory = await temporaryDirectory();
+    const path = join(directory, "audit.jsonl");
+    const logger = new AuditLogger({ path, maxBytes: 4096, maxFiles: 2 });
+    vi.mocked(appendFile).mockClear();
+
+    await logger.record({
+      timestamp: "2026-07-25T04:00:00.000Z",
+      tool: "caido_replay_request",
+      mode: "active",
+      phase: "intent",
+      success: true,
+      durationMs: 1,
+      truncated: false,
+    });
+
+    expect(vi.mocked(appendFile)).toHaveBeenCalledWith(
+      path,
+      expect.stringContaining('"phase":"intent"'),
+      expect.objectContaining({
+        encoding: "utf8",
+        mode: 0o600,
+        flush: true,
+      }),
+    );
+    expect(await readFile(path, "utf8")).toContain('"phase":"intent"');
+  });
+
   it("writes allowlisted JSONL fields without secrets", async () => {
     const directory = await temporaryDirectory();
     const path = join(directory, "private", "audit.jsonl");
@@ -29,6 +68,7 @@ describe("AuditLogger", () => {
       timestamp: "2026-07-25T04:00:00.000Z",
       tool: "caido_replay_request",
       mode: "active",
+      phase: "final",
       projectId: "project-1",
       requestIds: ["request-1"],
       targetHost: "example.test",
@@ -48,6 +88,7 @@ describe("AuditLogger", () => {
         timestamp: "2026-07-25T04:00:00.000Z",
         tool: "caido_replay_request",
         mode: "active",
+        phase: "final",
         projectId: "project-1",
         requestIds: ["request-1"],
         targetHost: "example.test",
@@ -73,6 +114,7 @@ describe("AuditLogger", () => {
       timestamp: "2026-07-25T04:00:00.000Z",
       tool: "caido_health",
       mode: "read-only",
+      phase: "final",
       success: true,
       durationMs: 1,
       truncated: false,

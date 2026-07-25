@@ -1,0 +1,295 @@
+import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const root = resolve(import.meta.dirname, "../..");
+
+async function document(path: string): Promise<string> {
+  return readFile(resolve(root, path), "utf8");
+}
+
+describe("release documentation", () => {
+  it("presents the security-first landing page and protects repository evidence", async () => {
+    const readme = await readFile(join(root, "README.md"), "utf8");
+
+    expect(readme).toContain(
+      "https://github.com/bicilique/caido-mcp/actions/workflows/ci.yml",
+    );
+    expect(readme).toMatch(/## Security posture/i);
+    expect(readme).toMatch(/## Architecture/i);
+    expect(readme).toContain("```mermaid");
+    expect(readme).toMatch(/## Operating modes/i);
+    expect(readme).toMatch(/## Quick start/i);
+    expect(readme).toMatch(/## Verification evidence/i);
+    expect(readme).toMatch(/real-Caido E2E/i);
+    expect(readme).toContain("README.id.md");
+
+    const gitignore = await readFile(join(root, ".gitignore"), "utf8");
+
+    for (const rule of [
+      ".env*",
+      "!.env.example",
+      ".idea/",
+      ".vscode/",
+      ".pnpm-store/",
+      "*.tsbuildinfo",
+      ".caido-agent/",
+      "*.swp",
+      "*~",
+    ]) {
+      expect(gitignore).toContain(rule);
+    }
+
+    for (const trackedPath of [
+      "README.md",
+      "README.id.md",
+      "packages/core/src/config.ts",
+      "tests/docs/documentation.test.ts",
+      "docs/02-architecture.md",
+      ".env.example",
+      "docs/release-checklist.md",
+      "pnpm-lock.yaml",
+      ".github/workflows/ci.yml",
+      "skills/caido-operator/references/tool-selection.md",
+    ]) {
+      const result = spawnSync(
+        "git",
+        ["check-ignore", "--no-index", "-q", trackedPath],
+        {
+          cwd: root,
+        },
+      );
+      expect(result.status).toBe(1);
+    }
+  });
+
+  it("provides the complete numbered documentation set and release records", async () => {
+    const required = [
+      "README.md",
+      "README.id.md",
+      "LICENSE",
+      "SECURITY.md",
+      "CHANGELOG.md",
+      ...Array.from(
+        { length: 11 },
+        (_, index) => `docs/${String(index).padStart(2, "0")}-`,
+      ),
+      "docs/roadmap.md",
+      "docs/release-checklist.md",
+    ];
+    const paths = await Promise.all(
+      required.map(async (path) => {
+        if (path.endsWith("-")) {
+          const candidates = [
+            "gap-analysis",
+            "product-requirements",
+            "architecture",
+            "threat-model",
+            "tool-catalog",
+            "skill-design",
+            "macos-intel-guide",
+            "testing-strategy",
+            "agent-evaluation",
+            "client-configuration",
+            "troubleshooting",
+          ];
+          return document(`${path}${candidates[Number(path.slice(5, 7))]}.md`);
+        }
+        return document(path);
+      }),
+    );
+
+    expect(paths.every((content) => content.trim().length > 0)).toBe(true);
+  });
+
+  it("contains a complete Bahasa Indonesia operator guide", async () => {
+    const readme = await document("README.id.md");
+
+    for (const heading of [
+      "Tentang Proyek",
+      "Prasyarat",
+      "macOS Intel",
+      "Autentikasi",
+      "Menjalankan Server MCP",
+      "Memasang Skill",
+      "Mode Read-Only dan Active",
+      "Peringatan Keamanan",
+      "Lima Prompt Aman Pertama",
+      "Pemecahan Masalah",
+      "Menghapus Instalasi dan Kredensial",
+    ]) {
+      expect(readme, heading).toMatch(new RegExp(`^## ${heading}$`, "m"));
+    }
+    expect(readme).toMatch(/Caido sudah (terpasang|diinstal)/i);
+    expect(readme).toMatch(/Skill[^]*penalaran[^]*MCP[^]*eksekusi/i);
+  });
+
+  it("documents dated, official client configurations with safe absolute paths", async () => {
+    const clients = await document("docs/09-client-configuration.md");
+
+    expect(clients).toMatch(/Diverifikasi[^]*2026-07-25/i);
+    expect(clients).toContain("Codex CLI");
+    expect(clients).toContain("Claude Code");
+    expect(clients).toContain("Cursor");
+    expect(clients).toContain("/Applications/Node 24/bin/node");
+    expect(clients).toContain(
+      "/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js",
+    );
+    expect(clients).toMatch(/codex mcp list/);
+    expect(clients).toMatch(/claude mcp (list|get)/);
+    expect(clients).toMatch(/auto-run[^]*(jangan|tidak)/i);
+    expect(clients).toMatch(/stdout[^]*JSON-RPC[^]*stderr/is);
+  });
+
+  it("documents credential cleanup, security boundaries, and deferred-only capabilities", async () => {
+    const [readme, security, threatModel, roadmap] = await Promise.all([
+      document("README.id.md"),
+      document("SECURITY.md"),
+      document("docs/03-threat-model.md"),
+      document("docs/roadmap.md"),
+    ]);
+
+    expect(readme).toMatch(/CAIDO_TOKEN_CACHE[^]*(hapus|remove)/i);
+    for (const topic of [
+      /otorisasi|authorized use/i,
+      /prompt injection/i,
+      /redaksi|redaction/i,
+      /scope/i,
+      /active mode/i,
+      /audit/i,
+      /lapor|report/i,
+      /keterbatasan|limitation/i,
+    ]) {
+      expect(`${security}\n${threatModel}`).toMatch(topic);
+    }
+    for (const deferred of [
+      "deleting projects",
+      "deleting scopes",
+      "deleting findings",
+      "dropping intercepted requests",
+      "high-volume fuzzing",
+      "active scanning",
+      "race-condition",
+      "out-of-scope overrides",
+      "arbitrary plugin RPC",
+      "arbitrary GraphQL",
+      "remote internet-exposed MCP transport",
+    ]) {
+      expect(roadmap.toLowerCase()).toContain(deferred.toLowerCase());
+    }
+    expect(roadmap).toMatch(/tidak (didaftarkan|tersedia)[^]*tool MCP/i);
+  });
+
+  it("records honest Intel and opt-in E2E release evidence", async () => {
+    const [intel, release] = await Promise.all([
+      document("docs/06-macos-intel-guide.md"),
+      document("docs/release-checklist.md"),
+    ]);
+
+    expect(intel).toMatch(/uname -m[^]*x86_64/is);
+    expect(intel).toMatch(/process\.arch[^]*x64/is);
+    expect(intel).toMatch(/arm64[^]*(gagal|ditolak)/i);
+    expect(intel).not.toMatch(/Rosetta (?:wajib|diperlukan)/i);
+    expect(intel).toMatch(/Rosetta tidak (?:wajib|diperlukan)/i);
+    expect(release).toMatch(/arm64[^]*tidak[^]*membuktikan[^]*Intel/is);
+    expect(release).toContain(
+      "CAIDO_E2E=1 CAIDO_AGENT_MODE=active CAIDO_PAT='<operator-supplied>' corepack pnpm test:e2e",
+    );
+  });
+
+  it("exposes every root command and composes every non-optional release gate", async () => {
+    const manifest = JSON.parse(await document("package.json")) as {
+      scripts: Record<string, string>;
+    };
+    const required = [
+      "lint",
+      "typecheck",
+      "test:unit",
+      "test:contract",
+      "test:integration",
+      "test:e2e",
+      "test:skill",
+      "eval:skill",
+      "test:docs",
+      "build",
+      "coverage",
+      "verify",
+    ];
+    for (const name of required) {
+      expect(manifest.scripts[name], name).toBeTypeOf("string");
+    }
+    for (const gate of [
+      "format:check",
+      "lint",
+      "typecheck",
+      "test:unit",
+      "test:contract",
+      "test:integration",
+      "test:skill",
+      "eval:skill",
+      "test:docs",
+      "check:generated",
+      "coverage",
+      "build",
+      "audit:high",
+      "scan:secrets",
+      "license:inventory",
+    ]) {
+      expect(manifest.scripts.verify, gate).toContain(gate);
+    }
+    expect(manifest.scripts.verify).not.toContain("test:e2e");
+  });
+
+  it("uses only official major-pinned actions and all deterministic CI gates", async () => {
+    const workflow = await document(".github/workflows/ci.yml");
+
+    expect(workflow).toContain("--frozen-lockfile");
+    expect(workflow).toMatch(/actions\/checkout@v\d+/);
+    expect(workflow).toMatch(/actions\/setup-node@v\d+/);
+    expect(workflow).not.toMatch(/uses:\s*(?!actions\/)[^ \n]+/);
+    expect(workflow.indexOf("pnpm build")).toBeLessThan(
+      workflow.indexOf("pnpm test:contract"),
+    );
+    for (const command of [
+      "format:check",
+      "lint",
+      "typecheck",
+      "test:unit",
+      "test:contract",
+      "test:integration",
+      "test:skill",
+      "eval:skill",
+      "test:docs",
+      "check:generated",
+      "coverage",
+      "build",
+      "audit:high",
+      "scan:secrets",
+      "license:inventory",
+    ]) {
+      expect(workflow, command).toContain(`pnpm ${command}`);
+    }
+  });
+
+  it("formats production, tests, configuration, and documentation repository-wide", async () => {
+    const [manifestText, ignored] = await Promise.all([
+      document("package.json"),
+      document(".prettierignore"),
+    ]);
+    const manifest = JSON.parse(manifestText) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(manifest.scripts.format).toBe("prettier --write .");
+    expect(manifest.scripts["format:check"]).toBe("prettier --check .");
+    expect(ignored).toMatch(/node_modules/);
+    expect(ignored).toMatch(/dist/);
+    expect(ignored).toMatch(/coverage/);
+    expect(ignored).toMatch(/pnpm-lock\.yaml/);
+    expect(ignored).not.toMatch(/^packages\/?$/m);
+    expect(ignored).not.toMatch(/^tests\/?$/m);
+    expect(ignored).not.toMatch(/^docs\/?$/m);
+  });
+});

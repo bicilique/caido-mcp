@@ -6,7 +6,10 @@ import {
   type ScopeRule,
 } from "../../src/security/scope-guard.js";
 
-const allow = (host: string, overrides: Partial<ScopeRule> = {}): ScopeRule => ({
+const allow = (
+  host: string,
+  overrides: Partial<ScopeRule> = {},
+): ScopeRule => ({
   action: "allow",
   host,
   ...overrides,
@@ -44,10 +47,7 @@ describe("evaluateScope", () => {
   it("lets a deny rule override a wildcard allow", () => {
     const decision = evaluateScope(
       normalizeTarget("https://admin.example.test"),
-      [
-        allow("*.example.test"),
-        { action: "deny", host: "admin.example.test" },
-      ],
+      [allow("*.example.test"), { action: "deny", host: "admin.example.test" }],
     );
 
     expect(decision).toMatchObject({
@@ -71,7 +71,8 @@ describe("evaluateScope", () => {
     const rules = [allow("example.test", { scheme: "https", port: 8443 })];
 
     expect(
-      evaluateScope(normalizeTarget("https://example.test:8443"), rules).allowed,
+      evaluateScope(normalizeTarget("https://example.test:8443"), rules)
+        .allowed,
     ).toBe(true);
     expect(
       evaluateScope(normalizeTarget("https://example.test"), rules).allowed,
