@@ -11,6 +11,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createRuntime } from "../../packages/mcp-server/src/runtime.js";
 import { createActiveTools } from "../../packages/mcp-server/src/tools/active/index.js";
+import { assertLoopbackTarget } from "../fixtures/http-server.js";
 
 export async function createIntegrationRuntime(
   caidoUrl: string,
@@ -20,6 +21,7 @@ export async function createIntegrationRuntime(
     | string
     | { accessToken: string; refreshToken: string } = "integration-token",
 ) {
+  assertLoopbackTarget(caidoUrl);
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   const runtime = await createRuntime(

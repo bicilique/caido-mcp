@@ -9,13 +9,21 @@ import {
   mutationData,
   requestTargetUrl,
   requireAllowedTarget,
+  throwIfAborted,
   type ActiveToolOptions,
 } from "./shared.js";
 
-const headerSchema = z.tuple([
-  z.string().min(1).max(256),
-  z.string().max(8192),
-]);
+const headerName = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/)
+  .refine((name) => name.toLowerCase() !== "host");
+const headerValue = z
+  .string()
+  .max(8192)
+  .refine((value) => !/[\u0000-\u001f\u007f]/.test(value));
+const headerSchema = z.tuple([headerName, headerValue]);
 
 export function networkTools(
   adapter: CaidoAdapter,
@@ -35,10 +43,12 @@ export function networkTools(
         contentType: z.string().min(1).max(256),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(true, false, true),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const requestId = input.requestId as string;
         const requests = await adapter.getRequests([requestId]);
+        throwIfAborted(signal);
         if (requests.length !== 1 || requests[0]?.id !== requestId) {
           throw new AgentError(
             "NOT_FOUND",
@@ -49,12 +59,14 @@ export function networkTools(
         const target = await requireAllowedTarget(
           adapter,
           requestTargetUrl(requests[0]),
+          signal,
         );
         const raw: RawMessage = {
           headers: input.headers as readonly (readonly [string, string])[],
           body: new TextEncoder().encode(input.body as string),
           contentType: input.contentType as string,
         };
+        throwIfAborted(signal);
         const evidence = await adapter.replayRequest(requestId, raw);
         return asRecord(
           successResult(
@@ -85,9 +97,15 @@ export function networkTools(
         body: z.string().max(options.bodyLimit).optional(),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
-        const target = await requireAllowedTarget(adapter, input.url as string);
+      annotations: activeAnnotations(true, false, true),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
+        const target = await requireAllowedTarget(
+          adapter,
+          input.url as string,
+          signal,
+        );
+        throwIfAborted(signal);
         const evidence = await adapter.sendRawRequest({
           method: input.method as string,
           url: target.url,

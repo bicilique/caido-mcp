@@ -7,6 +7,7 @@ import { asRecord, objectData, resultSchema } from "../shared.js";
 import {
   activeAnnotations,
   mutationData,
+  throwIfAborted,
   type ActiveToolOptions,
 } from "./shared.js";
 
@@ -24,8 +25,9 @@ export function managementTools(
         projectId: z.string().min(1).max(256),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(false, true, false),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const evidence = await adapter.selectProject(input.projectId as string);
         return asRecord(
           successResult(
@@ -52,8 +54,9 @@ export function managementTools(
         requestId: z.string().min(1).max(256),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(true, false, false),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const evidence = await adapter.createFinding({
           title: input.title as string,
           description: input.description as string,
@@ -79,8 +82,9 @@ export function managementTools(
         description: z.string().max(options.bodyLimit),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(true, true, false),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const evidence = await adapter.updateFinding(
           input.findingId as string,
           {
@@ -100,12 +104,13 @@ export function managementTools(
     {
       name: "caido_set_intercept",
       description:
-        "Sets Caido Intercept to one explicit enabled state and returns mutation evidence. It never retries automatically.",
+        "Sets Caido Intercept to one explicit enabled state and returns mutation evidence. The installed production SDK may return TOOL_DISABLED because it does not expose Intercept control. It never retries automatically.",
       mode: "active",
       inputSchema: z.strictObject({ enabled: z.boolean() }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(true, true, false),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const evidence = await adapter.setIntercept(input.enabled as boolean);
         return asRecord(
           successResult(
@@ -126,8 +131,9 @@ export function managementTools(
         requestId: z.string().min(1).max(256),
       }),
       outputSchema: resultSchema(objectData),
-      annotations: activeAnnotations,
-      handler: async (input) => {
+      annotations: activeAnnotations(true, false, true),
+      handler: async (input, signal) => {
+        throwIfAborted(signal);
         const evidence = await adapter.runWorkflow(
           input.workflowId as string,
           input.requestId as string,

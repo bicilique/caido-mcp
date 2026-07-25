@@ -176,12 +176,103 @@ function findingDescription(description: string, evidence: string): string {
   return evidence === "" ? description : `${description}\n\nEvidence:\n${evidence}`;
 }
 
+function validateInputHeaders(headers: RawMessage["headers"]): void {
+  for (const [name, value] of headers) {
+    if (
+      !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) ||
+      name.toLowerCase() === "host" ||
+      /[\u0000-\u001f\u007f]/.test(value)
+    ) {
+      throw new AgentError(
+        "INVALID_INPUT",
+        "Raw request headers contain unsafe names or values.",
+        false,
+      );
+    }
+  }
+}
+
+function boundaryError(
+  error: unknown,
+  context: "httpql" | "read" | "mutation" | "select",
+): AgentError {
+  if (error instanceof AgentError) return error;
+  const detail =
+    error instanceof Error
+      ? `${error.name} ${error.message}`
+      : String(error);
+  if (/unknown.?id|not.?found/i.test(detail)) {
+    return new AgentError(
+      "NOT_FOUND",
+      "The requested Caido object was not found.",
+      false,
+    );
+  }
+  if (/\b401\b|unauthori[sz]ed|authentication|authorization/i.test(detail)) {
+    return new AgentError(
+      "AUTH_FAILED",
+      "Caido rejected the configured authentication credential.",
+      false,
+      "Verify the configured credential or refresh the token cache.",
+    );
+  }
+  if (
+    context === "httpql" &&
+    /httpql|operationusererror|syntax|parse/i.test(detail)
+  ) {
+    return new AgentError(
+      "INVALID_HTTPQL",
+      "Caido rejected the HTTPQL expression.",
+      false,
+      "Correct the HTTPQL expression and retry.",
+    );
+  }
+  if (context === "select") {
+    return new AgentError(
+      "NOT_FOUND",
+      "The requested Caido project was not found.",
+      false,
+    );
+  }
+  const malformed =
+    /zod|invalid_type|validation|malformed|no data/i.test(detail);
+  return new AgentError(
+    "UPSTREAM_ERROR",
+    malformed
+      ? "Caido returned a malformed or unsupported response."
+      : "Caido returned an upstream operation error.",
+    !malformed,
+  );
+}
+
 function serializeRequest(
   method: string,
   path: string,
   headers: RawMessage["headers"],
   body: Uint8Array,
 ): Uint8Array {
+  if (!/^[A-Z]+$/.test(method) || /[\u0000-\u001f\u007f]/.test(path)) {
+    throw new AgentError(
+      "INVALID_INPUT",
+      "The raw request line contains unsafe characters.",
+      false,
+    );
+  }
+  let hostHeaders = 0;
+  for (const [name, value] of headers) {
+    if (name.toLowerCase() === "host") hostHeaders += 1;
+    if (
+      !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(name) ||
+      /[\u0000-\u001f\u007f]/.test(value) ||
+      hostHeaders > 1
+    ) {
+      throw new AgentError(
+        "INVALID_INPUT",
+        "Raw request headers contain unsafe names or values.",
+        false,
+      );
+    }
+  }
   const head = `${method} ${path} HTTP/1.1\r\n${headers
     .map(([name, value]) => `${name}: ${value}`)
     .join("\r\n")}\r\n\r\n`;
@@ -259,10 +350,14 @@ export class SdkCaidoAdapter implements CaidoAdapter {
 
   async listProjects(input: ListInput) {
     this.#ready();
-    const projects = (await this.#client.project.list()).map((project) =>
-      mapProject(project, this.#selectedProject?.id),
-    );
-    return paginate(projects, input.limit, input.cursor);
+    try {
+      const projects = (await this.#client.project.list()).map((project) =>
+        mapProject(project, this.#selectedProject?.id),
+      );
+      return paginate(projects, input.limit, input.cursor);
+    } catch (error) {
+      throw boundaryError(error, "read");
+    }
   }
 
   async listRequests(input: RequestListInput) {
@@ -276,23 +371,34 @@ export class SdkCaidoAdapter implements CaidoAdapter {
       "req",
       "created_at",
     );
-    const page = await builder.first(input.limit).execute();
-    return mapConnection(page, mapRequestListSummary);
+    try {
+      const page = await builder.first(input.limit).execute();
+      return mapConnection(page, mapRequestListSummary);
+    } catch (error) {
+      throw boundaryError(
+        error,
+        input.httpql === undefined ? "read" : "httpql",
+      );
+    }
   }
 
   async getRequests(ids: readonly string[]) {
     this.#ready();
-    const requests = await Promise.all(
-      ids.map((id) =>
-        this.#client.request.get(id, {
-          requestRaw: true,
-          responseRaw: true,
-        }),
-      ),
-    );
-    return requests.flatMap((request) =>
-      request === undefined ? [] : [mapRequestDetail(request)],
-    );
+    try {
+      const requests = await Promise.all(
+        ids.map((id) =>
+          this.#client.request.get(id, {
+            requestRaw: true,
+            responseRaw: true,
+          }),
+        ),
+      );
+      return requests.flatMap((request) =>
+        request === undefined ? [] : [mapRequestDetail(request)],
+      );
+    } catch (error) {
+      throw boundaryError(error, "read");
+    }
   }
 
   async listSitemap(): Promise<never> {
@@ -364,7 +470,11 @@ export class SdkCaidoAdapter implements CaidoAdapter {
 
   async selectProject(id: string): Promise<MutationEvidence> {
     this.#ready();
-    this.#selectedProject = await this.#client.project.select(id);
+    try {
+      this.#selectedProject = await this.#client.project.select(id);
+    } catch (error) {
+      throw boundaryError(error, "select");
+    }
     return { projectId: id, requestIds: [], mutation: "select_project" };
   }
 
@@ -386,20 +496,31 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     }
     const request = mapRequestSummary(pair);
     const path = request.path;
-    const bytes = serializeRequest(request.method, path, raw.headers, raw.body);
+    validateInputHeaders(raw.headers);
+    const bytes = serializeRequest(
+      request.method,
+      path,
+      [["Host", request.host], ...raw.headers],
+      raw.body,
+    );
     const connection = {
       host: request.host,
       port: request.port,
       isTLS: request.scheme === "https",
       SNI: request.host,
     };
-    const session = await this.#client.replay.sessions.create({
-      requestSource: { id: requestId },
-    });
-    const result = await this.#client.replay.send(session.id, {
-      raw: bytes,
-      connection,
-    });
+    let result;
+    try {
+      const session = await this.#client.replay.sessions.create({
+        requestSource: { id: requestId },
+      });
+      result = await this.#client.replay.send(session.id, {
+        raw: bytes,
+        connection,
+      });
+    } catch (error) {
+      throw boundaryError(error, "mutation");
+    }
     if (result.status !== "DONE") {
       throw new AgentError(
         "UPSTREAM_ERROR",
@@ -435,11 +556,8 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     }
     const port =
       url.port === "" ? (url.protocol === "https:" ? 443 : 80) : Number(url.port);
-    const headers = input.headers.some(
-      ([name]) => name.toLowerCase() === "host",
-    )
-      ? input.headers
-      : ([["Host", url.host], ...input.headers] as const);
+    validateInputHeaders(input.headers);
+    const headers = [["Host", url.host], ...input.headers] as const;
     const bytes = serializeRequest(
       input.method,
       `${url.pathname}${url.search}`,
@@ -452,16 +570,21 @@ export class SdkCaidoAdapter implements CaidoAdapter {
       isTLS: url.protocol === "https:",
       SNI: url.hostname,
     };
-    const session = await this.#client.replay.sessions.create({
-      requestSource: {
-        raw: Buffer.from(bytes).toString("latin1"),
+    let result;
+    try {
+      const session = await this.#client.replay.sessions.create({
+        requestSource: {
+          raw: Buffer.from(bytes).toString("latin1"),
+          connection,
+        },
+      });
+      result = await this.#client.replay.send(session.id, {
+        raw: bytes,
         connection,
-      },
-    });
-    const result = await this.#client.replay.send(session.id, {
-      raw: bytes,
-      connection,
-    });
+      });
+    } catch (error) {
+      throw boundaryError(error, "mutation");
+    }
     if (result.status !== "DONE") {
       throw new AgentError(
         "UPSTREAM_ERROR",

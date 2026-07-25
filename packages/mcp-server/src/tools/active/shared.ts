@@ -8,12 +8,18 @@ import type {
 
 import type { ToolDefinition } from "../../registry.js";
 
-export const activeAnnotations: ToolDefinition["annotations"] = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: false,
-  openWorldHint: true,
-};
+export function activeAnnotations(
+  destructiveHint: boolean,
+  idempotentHint: boolean,
+  openWorldHint: boolean,
+): ToolDefinition["annotations"] {
+  return {
+    readOnlyHint: false,
+    destructiveHint,
+    idempotentHint,
+    openWorldHint,
+  };
+}
 
 export interface ActiveToolOptions {
   bodyLimit: number;
@@ -39,6 +45,7 @@ function outOfScope(): AgentError {
 export async function requireAllowedTarget(
   adapter: CaidoAdapter,
   targetUrl: string,
+  signal: AbortSignal,
 ): Promise<NormalizedTarget> {
   let target: NormalizedTarget;
   try {
@@ -48,6 +55,7 @@ export async function requireAllowedTarget(
   }
 
   const selected = (await adapter.listScopes()).filter((scope) => scope.selected);
+  throwIfAborted(signal);
   if (selected.length !== 1) {
     throw outOfScope();
   }
@@ -55,6 +63,14 @@ export async function requireAllowedTarget(
     throw outOfScope();
   }
   return target;
+}
+
+export function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw signal.reason instanceof Error
+      ? signal.reason
+      : new DOMException("The active operation was aborted.", "AbortError");
+  }
 }
 
 function urlHost(host: string): string {

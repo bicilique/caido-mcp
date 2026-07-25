@@ -6,6 +6,10 @@ export interface HttpFixture {
   close(): Promise<void>;
 }
 
+interface Closeable {
+  close(): Promise<void>;
+}
+
 function isLoopbackHost(host: string): boolean {
   const normalized = host.replace(/^\[|\]$/g, "").toLowerCase();
   if (normalized === "localhost" || normalized === "::1") {
@@ -27,6 +31,25 @@ export function assertLoopbackTarget(input: string): URL {
     throw new Error("The E2E fixture target must be an HTTP(S) loopback URL.");
   }
   return target;
+}
+
+export async function closeE2eResources(
+  runtime: Closeable | undefined,
+  fixture: Closeable | undefined,
+): Promise<void> {
+  const close = async (resource: Closeable | undefined): Promise<void> => {
+    await resource?.close();
+  };
+  const results = await Promise.allSettled([
+    close(runtime),
+    close(fixture),
+  ]);
+  const failed = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failed !== undefined) {
+    throw failed.reason;
+  }
 }
 
 export async function startHttpFixture(): Promise<HttpFixture> {

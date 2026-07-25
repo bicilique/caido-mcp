@@ -52,7 +52,7 @@ describe("mock Caido active integration", () => {
 
     expect(result.structuredContent).toMatchObject({
       ok: false,
-      error: { retryable: false },
+      error: { code: "NOT_FOUND", retryable: false },
     });
     expect(mock.operations("SelectProject")).toHaveLength(1);
   });
@@ -101,7 +101,10 @@ describe("mock Caido active integration", () => {
       },
     });
 
-    expect(result.structuredContent).toMatchObject({ ok: false });
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      error: { code: "UPSTREAM_ERROR", retryable: true },
+    });
     expect(JSON.stringify(result)).not.toContain("integration-secret");
     expect(mock.operations("CreateReplaySession")).toHaveLength(1);
   });

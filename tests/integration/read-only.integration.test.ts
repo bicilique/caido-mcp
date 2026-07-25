@@ -42,6 +42,20 @@ describe("mock Caido read-only integration", () => {
         nextCursor: "cursor-request-text",
       },
     });
+    const second = await harness.client.callTool({
+      name: "caido_list_requests",
+      arguments: {
+        cursor: "cursor-request-text",
+        limit: 1,
+        direction: "descending",
+      },
+    });
+    expect(second.structuredContent).toMatchObject({
+      ok: true,
+      data: {
+        items: [{ id: "request-binary", host: "127.0.0.1" }],
+      },
+    });
 
     const detail = await harness.client.callTool({
       name: "caido_get_request",
@@ -53,8 +67,39 @@ describe("mock Caido read-only integration", () => {
     expect(serialized).not.toContain("binary-secret");
     expect(detail.structuredContent).toMatchObject({
       ok: true,
+      data: [
+        {
+          id: "request-text",
+          request: {
+            body: {
+              byteLength: expect.any(Number),
+              limit: 4096,
+              truncated: true,
+              text: expect.any(String),
+            },
+          },
+        },
+        {
+          id: "request-binary",
+          request: {
+            body: {
+              byteLength: expect.any(Number),
+              contentType: "application/octet-stream",
+              truncated: false,
+            },
+          },
+        },
+      ],
       meta: { untrusted: true, source: "caido_http_traffic" },
     });
+    const bodies = (
+      detail.structuredContent as {
+        data: Array<{ request: { body: { byteLength: number; text?: string } } }>;
+      }
+    ).data.map((item) => item.request.body);
+    expect(bodies[0]!.byteLength).toBeGreaterThan(4096);
+    expect(bodies[0]!.text!.length).toBeLessThanOrEqual(4096);
+    expect(bodies[1]).not.toHaveProperty("text");
 
     await harness.close();
     const audit = await readFile(join(directory, "audit.jsonl"), "utf8");
@@ -62,21 +107,28 @@ describe("mock Caido read-only integration", () => {
     expect(audit).not.toContain("integration-secret");
   });
 
-  it("sanitizes invalid HTTPQL, upstream failure, and malformed SDK data without hanging", async () => {
+  it.each([
+    ["INVALID_HTTPQL", "INVALID_HTTPQL", false],
+    ["UPSTREAM_ERROR", "UPSTREAM_ERROR", true],
+    ["MALFORMED_DATA", "UPSTREAM_ERROR", true],
+  ] as const)(
+    "maps %s to deterministic %s without leaking boundary details",
+    async (httpql, code, retryable) => {
     const mock = await createMockCaidoServer();
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido integration errors "));
     const harness = await createIntegrationRuntime(mock.url, directory, "read-only");
     cleanup.push(harness.close);
 
-    for (const httpql of ["INVALID_HTTPQL", "UPSTREAM_ERROR", "MALFORMED_DATA"]) {
-      const result = await harness.client.callTool({
-        name: "caido_list_requests",
-        arguments: { httpql, limit: 2, direction: "descending" },
-      });
-      expect(result.structuredContent).toMatchObject({ ok: false });
-      expect(JSON.stringify(result)).not.toMatch(/integration-secret|stack|graphql/i);
-    }
+    const result = await harness.client.callTool({
+      name: "caido_list_requests",
+      arguments: { httpql, limit: 2, direction: "descending" },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      error: { code, retryable },
+    });
+    expect(JSON.stringify(result)).not.toMatch(/integration-secret|stack|graphql/i);
   });
 
   it("represents HTTP auth failure as a deterministic sanitized tool error", async () => {
@@ -92,7 +144,7 @@ describe("mock Caido read-only integration", () => {
     });
     expect(result.structuredContent).toMatchObject({
       ok: false,
-      error: { retryable: false },
+      error: { code: "AUTH_FAILED", retryable: false },
     });
     expect(JSON.stringify(result)).not.toContain("integration-token");
   });

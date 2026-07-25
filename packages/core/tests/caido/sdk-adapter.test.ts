@@ -409,7 +409,7 @@ describe("SdkCaidoAdapter", () => {
     });
     expect(
       await adapter.replayRequest("request-1", {
-        headers: [["Host", "example.com"]],
+        headers: [["X-Test", "safe"]],
         body: new TextEncoder().encode("updated"),
         contentType: "text/plain",
       }),
@@ -448,6 +448,45 @@ describe("SdkCaidoAdapter", () => {
       mutation: "run_workflow",
     });
     expect(events).toEqual(["run-workflow:workflow-1:request-1"]);
+  });
+
+  it.each([
+    { headers: [["Host", "evil.test"]] },
+    { headers: [["X-Test", "safe\r\nInjected: yes"]] },
+    { headers: [["Bad Header", "safe"]] },
+    { headers: [["X-Test", "safe\u0000value"]] },
+  ] as const)("rejects unsafe raw headers before Replay serialization: $headers", async ({ headers }) => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(
+      adapter.sendRawRequest({
+        method: "GET",
+        url: "https://example.com/",
+        headers,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "INVALID_INPUT",
+        retryable: false,
+      }),
+    );
+    expect(events).toEqual([]);
+  });
+
+  it("accepts a safe raw header at the adapter boundary", async () => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(
+      adapter.sendRawRequest({
+        method: "GET",
+        url: "https://example.com/",
+        headers: [["X-Safe", "bounded value"]],
+      }),
+    ).resolves.toMatchObject({ mutation: "send_raw_request" });
+    expect(events).toEqual([
+      "create-replay-session",
+      "send-replay:session-created",
+    ]);
   });
 
   it.each([

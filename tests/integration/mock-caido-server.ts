@@ -46,7 +46,7 @@ function requestNode(
     "Authorization: Bearer integration-secret",
     "Content-Type: application/json",
     "",
-    '{"token":"integration-secret","safe":"evidence"}',
+    `{"token":"integration-secret","safe":"evidence","padding":"${"A".repeat(9_000)}"}`,
   ].join("\r\n");
   const binaryRaw = new Uint8Array([
     ...new TextEncoder().encode(

@@ -26,6 +26,7 @@ afterEach(async () => Promise.all(closers.splice(0).map((close) => close())));
 async function harness(
   mode: RegistrationMode,
   adapter = createTestAdapter(),
+  requestTimeoutMs = 1_000,
 ) {
   const audit: AuditEvent[] = [];
   const server = createServer({
@@ -38,7 +39,7 @@ async function harness(
         allowSensitiveHeaders: false,
         bodyLimit: 4096,
         maxBatch: 20,
-        requestTimeoutMs: 1_000,
+        requestTimeoutMs,
         auditLog: "/unused/audit.jsonl",
         tokenCache: "/unused/tokens.json",
       },
@@ -110,13 +111,56 @@ describe("active tool catalog", () => {
         additionalProperties: false,
       });
       expect(tool.outputSchema).toMatchObject({ type: "object" });
-      expect(tool.annotations).toEqual({
+    }
+    expect(
+      Object.fromEntries(active.map((tool) => [tool.name, tool.annotations])),
+    ).toEqual({
+      caido_select_project: {
         readOnlyHint: false,
         destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      caido_replay_request: {
+        readOnlyHint: false,
+        destructiveHint: true,
         idempotentHint: false,
         openWorldHint: true,
-      });
-    }
+      },
+      caido_send_raw_request: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+      caido_create_finding: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      caido_update_finding: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      caido_set_intercept: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      caido_run_workflow: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    });
+    expect(
+      active.find((tool) => tool.name === "caido_set_intercept")?.description,
+    ).toMatch(/production SDK may return TOOL_DISABLED/);
   });
 
   it.each([
@@ -389,5 +433,78 @@ describe("active tool catalog", () => {
       error: { code: "INTERNAL_ERROR", retryable: false },
     });
     expect(JSON.stringify({ result, audit })).not.toContain("must-not-leak");
+  });
+
+  it("does not mutate when delayed scope resolution finishes after timeout", async () => {
+    const sendRawRequest = vi.fn();
+    const adapter = createTestAdapter({
+      listScopes: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        return selectedScope([{ action: "allow", host: "api.test" }]);
+      },
+      sendRawRequest,
+    });
+    const { client } = await harness("active", adapter, 15);
+
+    const result = await client.callTool({
+      name: "caido_send_raw_request",
+      arguments: { method: "GET", url: "https://api.test/", headers: [] },
+    });
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      error: { code: "TIMEOUT" },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(sendRawRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not mutate after an external abort during scope resolution", async () => {
+    const sendRawRequest = vi.fn();
+    let resolveScopes!: () => void;
+    const scopesReady = new Promise<void>((resolve) => {
+      resolveScopes = resolve;
+    });
+    const adapter = createTestAdapter({
+      listScopes: async () => {
+        await scopesReady;
+        return selectedScope([{ action: "allow", host: "api.test" }]);
+      },
+      sendRawRequest,
+    });
+    const tool = createActiveTools(adapter, {
+      bodyLimit: 4096,
+      maxBatch: 20,
+    }).find((candidate) => candidate.name === "caido_send_raw_request")!;
+    const abort = new AbortController();
+    const call = tool.handler(
+      { method: "GET", url: "https://api.test/", headers: [] },
+      abort.signal,
+    );
+    abort.abort();
+    resolveScopes();
+    await expect(call).rejects.toBeDefined();
+    expect(sendRawRequest).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { headers: [["Host", "evil.test"]] },
+    { headers: [["X-Test", "safe\r\nInjected: yes"]] },
+    { headers: [["Bad Header", "safe"]] },
+    { headers: [["X-Test", "safe\u0000value"]] },
+  ])("rejects unsafe raw headers before the adapter boundary: $headers", async ({ headers }) => {
+    const sendRawRequest = vi.fn();
+    const adapter = createTestAdapter({
+      listScopes: async () =>
+        selectedScope([{ action: "allow", host: "api.test" }]),
+      sendRawRequest,
+    });
+    const { client } = await harness("active", adapter);
+    const result = await client.callTool({
+      name: "caido_send_raw_request",
+      arguments: { method: "GET", url: "https://api.test/", headers },
+    });
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toMatch(/validation|invalid/i);
+    expect(sendRawRequest).not.toHaveBeenCalled();
   });
 });
