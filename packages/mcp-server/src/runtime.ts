@@ -74,6 +74,27 @@ class OwnedTokenCache implements RuntimeTokenCache {
   }
 }
 
+class ClientCleanupOwner {
+  readonly #client: RuntimeClient;
+  readonly #closeClient: NonNullable<RuntimeDependencies["closeClient"]>;
+  #closing: Promise<void> | undefined;
+
+  constructor(
+    client: RuntimeClient,
+    closeClient: NonNullable<RuntimeDependencies["closeClient"]>,
+  ) {
+    this.#client = client;
+    this.#closeClient = closeClient;
+  }
+
+  close = (): Promise<void> => {
+    this.#closing ??= Promise.resolve().then(() =>
+      this.#closeClient(this.#client),
+    );
+    return this.#closing;
+  };
+}
+
 export interface RuntimeDependencies {
   createClient(
     config: ReturnType<typeof parseConfig>,
@@ -85,6 +106,7 @@ export interface RuntimeDependencies {
   createAdapter(
     client: CaidoSdkClient,
     initializationState: CaidoInitializationState,
+    closeClient: () => Promise<void>,
   ): CaidoAdapter;
   createTransport(stdin: Readable, stdout: Writable): Transport;
   createAuditLogger?: (
@@ -101,9 +123,10 @@ const productionDependencies: RuntimeDependencies = {
   createClient: (config, env, cache, onRequest) =>
     createCaidoClient(config, env, cache, onRequest) as RuntimeClient,
   connectClient: connectCaido,
-  createAdapter: (client, initializationState) =>
+  createAdapter: (client, initializationState, closeClient) =>
     new SdkCaidoAdapter(client, {
       initializationState,
+      closeClient,
     }),
   createTransport: (stdin, stdout) => new StdioServerTransport(stdin, stdout),
   createAuditLogger: (options) => new AuditLogger(options),
@@ -138,14 +161,15 @@ async function connectWithinDeadline(
   client: RuntimeClient,
   timeoutMs: number,
   connectClient: RuntimeDependencies["connectClient"],
-  closeClient: NonNullable<RuntimeDependencies["closeClient"]>,
+  closeClient: () => Promise<void>,
+  revokeOwnership: () => void,
   signal: AbortSignal,
 ): Promise<void> {
   let timer: NodeJS.Timeout | undefined;
   const pending = connectClient(client);
   let owned = true;
   const closeLateConnection = async (): Promise<void> => {
-    if (!owned) await closeClient(client);
+    if (!owned) await closeClient();
   };
   void pending.then(closeLateConnection, () => undefined).catch(() => undefined);
   let rejectAborted: ((error: AgentError) => void) | undefined;
@@ -184,8 +208,9 @@ async function connectWithinDeadline(
     ]);
   } catch (error) {
     owned = false;
+    revokeOwnership();
     try {
-      await closeClient(client);
+      await closeClient();
     } catch {
       // Initialization remains failed even when the SDK has no close primitive.
     }
@@ -212,7 +237,15 @@ export async function createRuntime(
       "Caido authentication requires completion in the configured browser.\n",
     );
   });
-  const adapter = dependencies.createAdapter(client, initializationState);
+  const cleanupOwner = new ClientCleanupOwner(
+    client,
+    dependencies.closeClient ?? productionDependencies.closeClient!,
+  );
+  const adapter = dependencies.createAdapter(
+    client,
+    initializationState,
+    cleanupOwner.close,
+  );
   const auditLogger =
     dependencies.createAuditLogger?.({
       path: config.auditLog,
@@ -230,7 +263,10 @@ export async function createRuntime(
     rateLimiter: new RateLimiter({ limit: 60, windowMs: 60_000 }),
   });
   const options = { bodyLimit: config.bodyLimit, maxBatch: config.maxBatch };
-  const activeTools = dependencies.createActiveTools?.(adapter, options) ?? [];
+  const activeTools =
+    config.mode === "active"
+      ? (dependencies.createActiveTools?.(adapter, options) ?? [])
+      : [];
   const server = createServer({
     mode: config.mode,
     tools: [...createReadOnlyTools(adapter, options), ...activeTools],
@@ -240,8 +276,6 @@ export async function createRuntime(
   });
   const transport = dependencies.createTransport(io.stdin, io.stdout);
   const startup = new AbortController();
-  const closeClient =
-    dependencies.closeClient ?? productionDependencies.closeClient!;
 
   let closing: Promise<void> | undefined;
   let resolveClosed: (() => void) | undefined;
@@ -296,7 +330,8 @@ export async function createRuntime(
       client,
       config.requestTimeoutMs,
       dependencies.connectClient,
-      closeClient,
+      cleanupOwner.close,
+      () => tokenCache.revoke(),
       startup.signal,
     );
   } catch (error) {
@@ -319,7 +354,20 @@ export async function createRuntime(
       await Promise.race([connecting, aborted]);
     } catch (error) {
       void connecting.catch(() => undefined);
-      if (!startup.signal.aborted) throw error;
+      if (!startup.signal.aborted) {
+        try {
+          await close();
+        } catch (cleanupError) {
+          io.stderr.write(
+            `Caido startup cleanup diagnostic: ${
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : "unknown error"
+            }\n`,
+          );
+        }
+        throw error;
+      }
     } finally {
       startup.signal.removeEventListener("abort", onAbort);
     }

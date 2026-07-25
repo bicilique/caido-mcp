@@ -148,6 +148,7 @@ export interface CaidoSdkClient {
 export interface SdkCaidoAdapterOptions {
   initializationError?: AgentError;
   initializationState?: CaidoInitializationState;
+  closeClient?: () => Promise<void>;
 }
 
 export interface CaidoInitializationState {
@@ -185,6 +186,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
   readonly #client: CaidoSdkClient;
   readonly #initializationError: AgentError | undefined;
   readonly #initializationState: CaidoInitializationState | undefined;
+  readonly #closeClient: (() => Promise<void>) | undefined;
   #selectedProject: Project | undefined;
   #closed = false;
 
@@ -192,6 +194,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     this.#client = client;
     this.#initializationError = options.initializationError;
     this.#initializationState = options.initializationState;
+    this.#closeClient = options.closeClient;
   }
 
   #connectionError(): AgentError | undefined {
@@ -469,8 +472,9 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: Omit<FindingDetail, "id">,
   ): Promise<MutationEvidence> {
     this.#ready();
-    if (input.severity.trim() !== "" || input.requestIds.length > 1) {
-      throw unavailable("Finding severity or multiple request associations");
+    const providedFields: object = input;
+    if ("severity" in providedFields || "requestIds" in providedFields) {
+      throw unavailable("Finding severity or request associations");
     }
     const requestId = input.requestIds[0];
     if (requestId === undefined) {
@@ -496,9 +500,10 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: Partial<Omit<FindingDetail, "id">>,
   ): Promise<MutationEvidence> {
     this.#ready();
+    const providedFields: object = input;
     if (
-      (input.severity !== undefined && input.severity.trim() !== "") ||
-      (input.requestIds !== undefined && input.requestIds.length > 0)
+      "severity" in providedFields ||
+      "requestIds" in providedFields
     ) {
       throw unavailable("Finding severity or request association updates");
     }
@@ -539,7 +544,9 @@ export class SdkCaidoAdapter implements CaidoAdapter {
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
-    if (this.#client.close !== undefined) {
+    if (this.#closeClient !== undefined) {
+      await this.#closeClient();
+    } else if (this.#client.close !== undefined) {
       await this.#client.close();
     } else if (this.#client.disconnect !== undefined) {
       await this.#client.disconnect();

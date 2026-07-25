@@ -186,7 +186,9 @@ export function mapRequestSummary(value: unknown): RequestSummary {
     scheme: request.isTls ? "https" : "http",
     port: request.port,
     ...(response === undefined ? {} : { statusCode: response.statusCode }),
-    requestLength: request.raw?.byteLength ?? 0,
+    ...(request.raw === undefined
+      ? {}
+      : { requestLength: request.raw.byteLength }),
     ...(response === undefined ? {} : { responseLength: response.length }),
     createdAt: request.createdAt.toISOString(),
   };
@@ -202,7 +204,6 @@ export function mapRequestListSummary(value: unknown): RequestSummary {
     scheme: request.isTls ? "https" : "http",
     port: request.port,
     ...(response === undefined ? {} : { statusCode: response.statusCode }),
-    requestLength: 0,
     ...(response === undefined ? {} : { responseLength: response.length }),
     createdAt: request.createdAt.toISOString(),
   };

@@ -29,7 +29,9 @@ function secureRequestSummary(request: RequestSummary): RequestSummary {
     ...(request.statusCode === undefined
       ? {}
       : { statusCode: request.statusCode }),
-    requestLength: request.requestLength,
+    ...(request.requestLength === undefined
+      ? {}
+      : { requestLength: request.requestLength }),
     ...(request.responseLength === undefined
       ? {}
       : { responseLength: request.responseLength }),

@@ -20,7 +20,7 @@ export interface RequestSummary {
   scheme: "http" | "https";
   port: number;
   statusCode?: number;
-  requestLength: number;
+  requestLength?: number;
   responseLength?: number;
   createdAt: string;
 }

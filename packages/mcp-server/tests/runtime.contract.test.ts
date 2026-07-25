@@ -193,6 +193,8 @@ describe("production runtime", () => {
     const events: string[] = [];
     const tokenPath = join(directory, "tokens.json");
     let resolveConnect: (() => void) | undefined;
+    let resolveClose: (() => void) | undefined;
+    let closeCalls = 0;
     let tokenCache:
       | {
           save(token: {
@@ -206,7 +208,7 @@ describe("production runtime", () => {
       | { initializationError?: { code: string } }
       | undefined;
     const [, serverTransport] = InMemoryTransport.createLinkedPair();
-    const runtime = await createRuntime(
+    const pendingRuntime = createRuntime(
       {
         CAIDO_REQUEST_TIMEOUT_MS: "5",
         CAIDO_AUDIT_LOG: join(directory, "audit.jsonl"),
@@ -218,9 +220,9 @@ describe("production runtime", () => {
         stderr: new PassThrough(),
       },
       {
-        createAdapter: (_client, initializationState) => {
+        createAdapter: (_client, initializationState, closeClient) => {
           state = initializationState;
-          return createTestAdapter();
+          return createTestAdapter({ close: closeClient });
         },
         createClient: (_config, _env, cache) => {
           tokenCache = cache;
@@ -236,21 +238,32 @@ describe("production runtime", () => {
           });
         },
         closeClient: async () => {
+          closeCalls += 1;
           events.push("close-client");
+          await new Promise<void>((resolve) => {
+            resolveClose = resolve;
+          });
         },
         createTransport: () => serverTransport,
       },
     );
 
+    await expect
+      .poll(() => events.includes("close-client"), { timeout: 1_000 })
+      .toBe(true);
+    resolveConnect?.();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await expect(readFile(tokenPath, "utf8")).rejects.toThrow();
+    resolveClose?.();
+    const runtime = await pendingRuntime;
     expect(state?.initializationError?.code).toBe("CAIDO_UNREACHABLE");
     const closesAtTimeout = events.length;
-    resolveConnect?.();
     await expect
       .poll(() => events.length, { timeout: 1_000 })
-      .toBeGreaterThan(closesAtTimeout);
-    await expect(readFile(tokenPath, "utf8")).rejects.toThrow();
+      .toBe(closesAtTimeout);
 
     await runtime.close();
+    expect(closeCalls).toBe(1);
   });
 
   it.each([
@@ -278,6 +291,7 @@ describe("production runtime", () => {
         },
         handler: async () => ({ ok: true }),
       };
+      let activeFactoryCalls = 0;
       const runtime = await createRuntime(
         {
           CAIDO_AGENT_MODE: mode,
@@ -294,7 +308,10 @@ describe("production runtime", () => {
           createClient: () => ({}) as never,
           connectClient: async () => undefined,
           createTransport: () => serverTransport,
-          createActiveTools: () => [activeTool],
+          createActiveTools: () => {
+            activeFactoryCalls += 1;
+            return [activeTool];
+          },
         },
       );
       const client = new Client({ name: "mode-test", version: "1.0.0" });
@@ -302,6 +319,7 @@ describe("production runtime", () => {
 
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names.includes("caido_injected_active")).toBe(exposesActive);
+      expect(activeFactoryCalls).toBe(exposesActive ? 1 : 0);
 
       await client.close();
       await runtime.close();
@@ -357,5 +375,55 @@ describe("production runtime", () => {
 
     expect(didResolve).toBe(true);
     expect(events).toEqual(["adapter", "audit-flush", "audit-close"]);
+  });
+
+  it("fully cleans up and rejects when MCP server connection fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "caido runtime connect failure "));
+    directories.push(directory);
+    const signals = new EventEmitter();
+    const events: string[] = [];
+    const [, serverTransport] = InMemoryTransport.createLinkedPair();
+    serverTransport.start = async () => {
+      throw new Error("server connect failed");
+    };
+
+    await expect(
+      createRuntime(
+        {
+          CAIDO_AUDIT_LOG: join(directory, "audit.jsonl"),
+          CAIDO_TOKEN_CACHE: join(directory, "tokens.json"),
+        },
+        {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          signals,
+        },
+        {
+          createAdapter: () =>
+            createTestAdapter({
+              close: async () => {
+                events.push("adapter");
+              },
+            }),
+          createClient: () => ({}) as never,
+          connectClient: async () => undefined,
+          createTransport: () => serverTransport,
+          createAuditLogger: () => ({
+            record: async () => undefined,
+            flush: async () => {
+              events.push("audit-flush");
+            },
+            close: async () => {
+              events.push("audit-close");
+            },
+          }),
+        },
+      ),
+    ).rejects.toThrow("server connect failed");
+
+    expect(events).toEqual(["adapter", "audit-flush", "audit-close"]);
+    expect(signals.listenerCount("SIGINT")).toBe(0);
+    expect(signals.listenerCount("SIGTERM")).toBe(0);
   });
 });

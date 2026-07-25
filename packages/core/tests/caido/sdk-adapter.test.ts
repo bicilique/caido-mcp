@@ -282,7 +282,6 @@ describe("SdkCaidoAdapter", () => {
           scheme: "https",
           port: 443,
           statusCode: 200,
-          requestLength: 0,
           responseLength: 43,
           createdAt: "2026-07-25T00:00:00.000Z",
         },
@@ -378,18 +377,6 @@ describe("SdkCaidoAdapter", () => {
     const { adapter, events } = sdkFixture();
 
     expect(
-      await adapter.createFinding({
-        title: "Reflected input",
-        severity: "",
-        requestIds: ["request-1"],
-        description: "Input is reflected.",
-        evidence: "response body",
-      }),
-    ).toEqual({
-      requestIds: ["request-1"],
-      mutation: "create_finding",
-    });
-    expect(
       await adapter.updateFinding("finding-1", {
         title: "Confirmed reflected input",
       }),
@@ -419,7 +406,6 @@ describe("SdkCaidoAdapter", () => {
       mutation: "send_raw_request",
     });
     expect(events).toEqual([
-      "create-finding:request-1:Reflected input",
       "update-finding:finding-1:Confirmed reflected input",
       "create-replay-session",
       "send-replay:session-created",
@@ -461,7 +447,37 @@ describe("SdkCaidoAdapter", () => {
       (adapter: SdkCaidoAdapter) =>
         adapter.updateFinding("finding-1", { requestIds: ["request-2"] }),
     ],
-  ])("rejects unsupported non-empty finding field: %s", async (_name, call) => {
+    [
+      "create empty severity property",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.createFinding({
+          title: "Empty severity",
+          severity: "",
+          description: "Description",
+          evidence: "",
+        } as never),
+    ],
+    [
+      "create empty request IDs property",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.createFinding({
+          title: "Empty requests",
+          requestIds: [],
+          description: "Description",
+          evidence: "",
+        } as never),
+    ],
+    [
+      "update empty severity property",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.updateFinding("finding-1", { severity: "" }),
+    ],
+    [
+      "update empty request IDs property",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.updateFinding("finding-1", { requestIds: [] }),
+    ],
+  ])("rejects unsupported finding field by presence: %s", async (_name, call) => {
     const { adapter, events } = sdkFixture();
 
     await expect(call(adapter)).rejects.toEqual(
