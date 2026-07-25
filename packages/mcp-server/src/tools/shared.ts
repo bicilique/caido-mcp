@@ -20,23 +20,28 @@ export const readOnlyAnnotations: ToolDefinition["annotations"] = {
   openWorldHint: false,
 };
 
-const MetaSchema = z.strictObject({
-  tool: z.string(),
-  projectId: z.string().optional(),
-  requestIds: z.array(z.string()).optional(),
-  truncated: z.boolean().optional(),
-  offset: z.number().int().nonnegative().optional(),
-  limit: z.number().int().nonnegative().optional(),
-  untrusted: z.boolean().optional(),
-  source: z.string().optional(),
-  durationMs: z.number().nonnegative().optional(),
-});
+const metaSchema = <Name extends `caido_${string}`>(tool: Name) =>
+  z.strictObject({
+    tool: z.literal(tool),
+    projectId: z.string().optional(),
+    requestIds: z.array(z.string()).optional(),
+    truncated: z.boolean().optional(),
+    offset: z.number().int().nonnegative().optional(),
+    limit: z.number().int().nonnegative().optional(),
+    untrusted: z.boolean().optional(),
+    source: z.string().optional(),
+    durationMs: z.number().nonnegative().optional(),
+  });
 
-export function resultSchema(data: z.ZodType): z.ZodObject {
-  return z.strictObject({
+export function resultSchema<Name extends `caido_${string}`>(
+  tool: Name,
+  data: z.ZodType,
+): z.ZodObject {
+  return z
+    .strictObject({
     ok: z.boolean(),
     data: data.optional(),
-    meta: MetaSchema,
+    meta: metaSchema(tool),
     warnings: z.array(z.string()),
     error: z
       .strictObject({
@@ -46,7 +51,40 @@ export function resultSchema(data: z.ZodType): z.ZodObject {
         remediation: z.string().optional(),
       })
       .optional(),
-  });
+    })
+    .superRefine((result, context) => {
+      if (result.ok) {
+        if (result.data === undefined) {
+          context.addIssue({
+            code: "custom",
+            path: ["data"],
+            message: "Successful tool results require data.",
+          });
+        }
+        if (result.error !== undefined) {
+          context.addIssue({
+            code: "custom",
+            path: ["error"],
+            message: "Successful tool results forbid error.",
+          });
+        }
+        return;
+      }
+      if (result.error === undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["error"],
+          message: "Failed tool results require error.",
+        });
+      }
+      if (result.data !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["data"],
+          message: "Failed tool results forbid data.",
+        });
+      }
+    });
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
@@ -252,18 +290,75 @@ export const ResponseComparisonSchema = z.strictObject({
   right: ResponseComparisonSideSchema,
 });
 
-export const MutationDataSchema = z.strictObject({
-  summary: z.string(),
-  evidence: z.strictObject({
-    projectId: z.string().optional(),
+export const ACTIVE_MUTATION_CONTRACTS = {
+  caido_select_project: {
+    summary: "Selected one Caido project.",
+    mutation: "select_project",
+    target: "forbidden",
+    projectId: "required",
+  },
+  caido_create_finding: {
+    summary: "Created one Caido finding.",
+    mutation: "create_finding",
+    target: "forbidden",
+    projectId: "optional",
+  },
+  caido_update_finding: {
+    summary: "Updated one Caido finding.",
+    mutation: "update_finding",
+    target: "forbidden",
+    projectId: "optional",
+  },
+  caido_set_intercept: {
+    summary: "Set Caido Intercept state.",
+    mutation: "set_intercept",
+    target: "forbidden",
+    projectId: "optional",
+  },
+  caido_run_workflow: {
+    summary: "Ran one Caido workflow.",
+    mutation: "run_workflow",
+    target: "forbidden",
+    projectId: "optional",
+  },
+  caido_replay_request: {
+    summary: "Replayed one bounded request.",
+    mutation: "replay_request",
+    target: "required",
+    projectId: "optional",
+  },
+  caido_send_raw_request: {
+    summary: "Sent one bounded raw request.",
+    mutation: "send_raw_request",
+    target: "required",
+    projectId: "optional",
+  },
+} as const;
+
+export type ActiveMutationTool = keyof typeof ACTIVE_MUTATION_CONTRACTS;
+
+export function activeMutationDataSchema(tool: ActiveMutationTool): z.ZodObject {
+  const contract = ACTIVE_MUTATION_CONTRACTS[tool];
+  const projectId =
+    contract.projectId === "required" ? z.string() : z.string().optional();
+  const common = {
+    projectId,
     requestIds: z.array(z.string()),
-    mutation: z.string(),
-    target: z
-      .strictObject({
-        scheme: z.enum(["http", "https"]),
-        host: z.string(),
-        port: z.number().int().min(1).max(65_535),
-      })
-      .optional(),
-  }),
-});
+    mutation: z.literal(contract.mutation),
+  };
+  const evidence =
+    contract.target === "required"
+      ? z.strictObject({
+          ...common,
+          target: z.strictObject({
+            scheme: z.enum(["http", "https"]),
+            host: z.string(),
+            port: z.number().int().min(1).max(65_535),
+          }),
+        })
+      : z.strictObject(common);
+  return z.strictObject({
+    summary: z.literal(contract.summary),
+    evidence,
+  });
+}

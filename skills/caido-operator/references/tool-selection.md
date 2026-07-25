@@ -2,115 +2,6 @@
 
 Generated from the canonical MCP registry. Do not edit manually.
 
-## Shared Output Envelope
-
-Every tool returns this strict envelope. Each tool section below supplies its exact success `data` schema.
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "ok": {
-      "type": "boolean"
-    },
-    "meta": {
-      "type": "object",
-      "properties": {
-        "tool": {
-          "type": "string"
-        },
-        "projectId": {
-          "type": "string"
-        },
-        "requestIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "truncated": {
-          "type": "boolean"
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "limit": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "untrusted": {
-          "type": "boolean"
-        },
-        "source": {
-          "type": "string"
-        },
-        "durationMs": {
-          "type": "number",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "tool"
-      ],
-      "additionalProperties": false
-    },
-    "warnings": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "error": {
-      "type": "object",
-      "properties": {
-        "code": {
-          "type": "string",
-          "enum": [
-            "AUTH_REQUIRED",
-            "AUTH_FAILED",
-            "CAIDO_UNREACHABLE",
-            "INVALID_INPUT",
-            "INVALID_HTTPQL",
-            "NOT_FOUND",
-            "OUT_OF_SCOPE",
-            "TOOL_DISABLED",
-            "TIMEOUT",
-            "RATE_LIMITED",
-            "UPSTREAM_ERROR",
-            "INTERNAL_ERROR"
-          ]
-        },
-        "message": {
-          "type": "string"
-        },
-        "retryable": {
-          "type": "boolean"
-        },
-        "remediation": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "code",
-        "message",
-        "retryable"
-      ],
-      "additionalProperties": false
-    }
-  },
-  "required": [
-    "ok",
-    "meta",
-    "warnings"
-  ],
-  "additionalProperties": false
-}
-```
-
 ## `caido_create_finding`
 
 **Purpose:** Creates exactly one Caido finding from a bounded title, description, and request evidence ID. It never retries automatically.
@@ -152,69 +43,221 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Created one Caido finding."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "create_finding"
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_create_finding"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_create_finding"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -262,118 +305,294 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "left": {
-      "anyOf": [
-        {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
           "type": "object",
           "properties": {
-            "requestId": {
+            "left": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 999
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "fingerprint": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "requestId",
+                    "byteLength",
+                    "headers",
+                    "fingerprint"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "right": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 999
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    },
+                    "fingerprint": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "requestId",
+                    "byteLength",
+                    "headers",
+                    "fingerprint"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_diff_responses"
+            },
+            "projectId": {
               "type": "string"
             },
-            "statusCode": {
-              "type": "integer",
-              "minimum": 100,
-              "maximum": 999
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "byteLength": {
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
             },
-            "headers": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "prefixItems": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              }
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
             },
-            "fingerprint": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$"
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
             }
           },
           "required": [
-            "requestId",
-            "byteLength",
-            "headers",
-            "fingerprint"
+            "tool"
           ],
           "additionalProperties": false
         },
-        {
-          "type": "null"
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
       ]
     },
-    "right": {
-      "anyOf": [
-        {
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
           "type": "object",
           "properties": {
-            "requestId": {
+            "tool": {
+              "type": "string",
+              "const": "caido_diff_responses"
+            },
+            "projectId": {
               "type": "string"
             },
-            "statusCode": {
-              "type": "integer",
-              "minimum": 100,
-              "maximum": 999
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "byteLength": {
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
             },
-            "headers": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "prefixItems": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ]
-              }
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
             },
-            "fingerprint": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$"
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
             }
           },
           "required": [
-            "requestId",
-            "byteLength",
-            "headers",
-            "fingerprint"
+            "tool"
           ],
           "additionalProperties": false
         },
-        {
-          "type": "null"
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
         }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
       ]
     }
-  },
-  "required": [
-    "left",
-    "right"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -408,33 +627,209 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "anyOf": [
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
     {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "name": {
-          "type": "string"
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "selected": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "selected"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "selected": {
-          "type": "boolean"
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_current_project"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
-        "id",
-        "name",
-        "selected"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
     },
     {
-      "type": "null"
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_current_project"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
   ]
 }
@@ -479,42 +874,119 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "anyOf": [
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
     {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "title": {
-          "type": "string"
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "description": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "object",
+                  "properties": {
+                    "contentType": {
+                      "type": "string"
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "contentType",
+                    "byteLength",
+                    "offset",
+                    "limit",
+                    "truncated",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "severity",
+                "requestIds",
+                "description",
+                "evidence"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "severity": {
-          "type": "string"
-        },
-        "requestIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "description": {
-          "type": "string"
-        },
-        "evidence": {
+        "meta": {
           "type": "object",
           "properties": {
-            "contentType": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_finding"
+            },
+            "projectId": {
               "type": "string"
             },
-            "byteLength": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
             },
             "offset": {
               "type": "integer",
@@ -526,40 +998,139 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
               "minimum": 0,
               "maximum": 9007199254740991
             },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_finding"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "truncated": {
               "type": "boolean"
             },
-            "sha256": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$"
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
             },
-            "text": {
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
               "type": "string"
             }
           },
           "required": [
-            "contentType",
-            "byteLength",
-            "offset",
-            "limit",
-            "truncated",
-            "sha256"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "id",
-        "title",
-        "severity",
-        "requestIds",
-        "description",
-        "evidence"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "null"
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
   ]
 }
@@ -609,209 +1180,385 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "array",
-  "items": {
-    "type": "object",
-    "properties": {
-      "id": {
-        "type": "string"
-      },
-      "method": {
-        "type": "string"
-      },
-      "host": {
-        "type": "string"
-      },
-      "path": {
-        "type": "string"
-      },
-      "scheme": {
-        "type": "string",
-        "enum": [
-          "http",
-          "https"
-        ]
-      },
-      "port": {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 65535
-      },
-      "statusCode": {
-        "type": "integer",
-        "minimum": 100,
-        "maximum": 999
-      },
-      "requestLength": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "responseLength": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 9007199254740991
-      },
-      "createdAt": {
-        "type": "string"
-      },
-      "request": {
-        "type": "object",
-        "properties": {
-          "headers": {
-            "type": "array",
-            "items": {
-              "type": "array",
-              "prefixItems": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "body": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
             "type": "object",
             "properties": {
-              "contentType": {
+              "id": {
                 "type": "string"
               },
-              "byteLength": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+              "method": {
+                "type": "string"
               },
-              "offset": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+              "host": {
+                "type": "string"
               },
-              "limit": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+              "path": {
+                "type": "string"
               },
-              "truncated": {
-                "type": "boolean"
-              },
-              "sha256": {
+              "scheme": {
                 "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
+                "enum": [
+                  "http",
+                  "https"
+                ]
               },
-              "text": {
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "statusCode": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 999
+              },
+              "requestLength": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "responseLength": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "createdAt": {
                 "type": "string"
+              },
+              "request": {
+                "type": "object",
+                "properties": {
+                  "headers": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "object",
+                    "properties": {
+                      "contentType": {
+                        "type": "string"
+                      },
+                      "byteLength": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "contentType",
+                      "byteLength",
+                      "offset",
+                      "limit",
+                      "truncated",
+                      "sha256"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "headers",
+                  "contentType",
+                  "body"
+                ],
+                "additionalProperties": false
+              },
+              "response": {
+                "type": "object",
+                "properties": {
+                  "headers": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "body": {
+                    "type": "object",
+                    "properties": {
+                      "contentType": {
+                        "type": "string"
+                      },
+                      "byteLength": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "contentType",
+                      "byteLength",
+                      "offset",
+                      "limit",
+                      "truncated",
+                      "sha256"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "headers",
+                  "contentType",
+                  "body"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
-              "contentType",
-              "byteLength",
-              "offset",
-              "limit",
-              "truncated",
-              "sha256"
+              "id",
+              "method",
+              "host",
+              "path",
+              "scheme",
+              "port",
+              "createdAt",
+              "request"
             ],
             "additionalProperties": false
           }
         },
-        "required": [
-          "headers",
-          "contentType",
-          "body"
-        ],
-        "additionalProperties": false
-      },
-      "response": {
-        "type": "object",
-        "properties": {
-          "headers": {
-            "type": "array",
-            "items": {
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
               "type": "array",
-              "prefixItems": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            }
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "body": {
-            "type": "object",
-            "properties": {
-              "contentType": {
-                "type": "string"
-              },
-              "byteLength": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "offset": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "limit": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "truncated": {
-                "type": "boolean"
-              },
-              "sha256": {
-                "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
-              },
-              "text": {
+              "items": {
                 "type": "string"
               }
             },
-            "required": [
-              "contentType",
-              "byteLength",
-              "offset",
-              "limit",
-              "truncated",
-              "sha256"
-            ],
-            "additionalProperties": false
-          }
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
         },
-        "required": [
-          "headers",
-          "contentType",
-          "body"
-        ],
-        "additionalProperties": false
-      }
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
     },
-    "required": [
-      "id",
-      "method",
-      "host",
-      "path",
-      "scheme",
-      "port",
-      "createdAt",
-      "request"
-    ],
-    "additionalProperties": false
-  }
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_get_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
+    }
+  ]
 }
 ```
 
@@ -846,47 +1593,223 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "reachable": {
-      "type": "boolean"
-    },
-    "authenticated": {
-      "type": "boolean"
-    },
-    "version": {
-      "type": "string"
-    },
-    "currentProject": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "name": {
-          "type": "string"
+        "data": {
+          "type": "object",
+          "properties": {
+            "reachable": {
+              "type": "boolean"
+            },
+            "authenticated": {
+              "type": "boolean"
+            },
+            "version": {
+              "type": "string"
+            },
+            "currentProject": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "selected": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "selected"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "reachable",
+            "authenticated"
+          ],
+          "additionalProperties": false
         },
-        "selected": {
-          "type": "boolean"
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_health"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
-        "id",
-        "name",
-        "selected"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_health"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "reachable",
-    "authenticated"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -930,65 +1853,241 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "allowed": {
-      "type": "boolean"
-    },
-    "reason": {
-      "type": "string",
-      "enum": [
-        "matched_allow",
-        "matched_deny",
-        "no_matching_allow",
-        "no_selected_scope"
-      ]
-    },
-    "matchedRule": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "action": {
-          "type": "string",
-          "enum": [
-            "allow",
-            "deny"
-          ]
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "host": {
-          "type": "string"
+        "data": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "matched_allow",
+                "matched_deny",
+                "no_matching_allow",
+                "no_selected_scope"
+              ]
+            },
+            "matchedRule": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "allow",
+                    "deny"
+                  ]
+                },
+                "host": {
+                  "type": "string"
+                },
+                "scheme": {
+                  "type": "string",
+                  "enum": [
+                    "http",
+                    "https"
+                  ]
+                },
+                "port": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535
+                }
+              },
+              "required": [
+                "action",
+                "host"
+              ],
+              "additionalProperties": false
+            },
+            "scopeId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "allowed",
+            "reason"
+          ],
+          "additionalProperties": false
         },
-        "scheme": {
-          "type": "string",
-          "enum": [
-            "http",
-            "https"
-          ]
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_is_in_scope"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
         },
-        "port": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 65535
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
-        "action",
-        "host"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
     },
-    "scopeId": {
-      "type": "string"
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_is_in_scope"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "allowed",
-    "reason"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1038,43 +2137,219 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "query"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
+              "type": "string"
+            }
           },
-          "name": {
-            "type": "string"
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_filters"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
           },
-          "query": {
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_filters"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "query"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1124,50 +2399,226 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "severity": {
-            "type": "string"
-          },
-          "requestIds": {
-            "type": "array",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
             "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "severity": {
+                    "type": "string"
+                  },
+                  "requestIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "severity",
+                  "requestIds"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
               "type": "string"
             }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_findings"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_findings"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "required": [
-          "id",
-          "title",
-          "severity",
-          "requestIds"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1217,43 +2668,219 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "selected"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
+              "type": "string"
+            }
           },
-          "name": {
-            "type": "string"
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_projects"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
           },
-          "selected": {
-            "type": "boolean"
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_projects"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "selected"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1303,46 +2930,222 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "entryIds": {
-            "type": "array",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
             "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "entryIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "entryIds"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
               "type": "string"
             }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_replay_sessions"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_replay_sessions"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "entryIds"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1405,80 +3208,256 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "scheme": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "https"
+                    ]
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "statusCode": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 999
+                  },
+                  "requestLength": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "responseLength": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "method",
+                  "host",
+                  "path",
+                  "scheme",
+                  "port",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_requests"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
             "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_requests"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
           },
-          "method": {
-            "type": "string"
-          },
-          "host": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "scheme": {
-            "type": "string",
-            "enum": [
-              "http",
-              "https"
-            ]
-          },
-          "port": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 65535
-          },
-          "statusCode": {
-            "type": "integer",
-            "minimum": 100,
-            "maximum": 999
-          },
-          "requestLength": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "responseLength": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
-          },
-          "createdAt": {
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "method",
-          "host",
-          "path",
-          "scheme",
-          "port",
-          "createdAt"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1513,67 +3492,243 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "array",
-  "items": {
-    "type": "object",
-    "properties": {
-      "id": {
-        "type": "string"
-      },
-      "name": {
-        "type": "string"
-      },
-      "rules": {
-        "type": "array",
-        "items": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "deny"
+                      ]
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "scheme": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "https"
+                      ]
+                    },
+                    "port": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "host"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "selected": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "rules",
+              "selected"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "meta": {
           "type": "object",
           "properties": {
-            "action": {
+            "tool": {
               "type": "string",
-              "enum": [
-                "allow",
-                "deny"
-              ]
+              "const": "caido_list_scopes"
             },
-            "host": {
+            "projectId": {
               "type": "string"
             },
-            "scheme": {
-              "type": "string",
-              "enum": [
-                "http",
-                "https"
-              ]
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
-            "port": {
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
               "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
             }
           },
           "required": [
-            "action",
-            "host"
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_scopes"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
-      "selected": {
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "id",
-      "name",
-      "rules",
-      "selected"
-    ],
-    "additionalProperties": false
-  }
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
+    }
+  ]
 }
 ```
 
@@ -1625,14 +3780,11 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "array",
-  "items": {
-    "$ref": "#/$defs/__schema0"
-  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "__schema0": {
       "type": "object",
@@ -1665,7 +3817,186 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
       ],
       "additionalProperties": false
     }
-  }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_sitemap"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_sitemap"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
+    }
+  ]
 }
 ```
 
@@ -1715,43 +4046,219 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "enabled"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "nextCursor": {
+              "type": "string"
+            }
           },
-          "name": {
-            "type": "string"
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_workflows"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
           },
-          "enabled": {
-            "type": "boolean"
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_list_workflows"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "enabled"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "nextCursor": {
-      "type": "string"
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "items"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1826,69 +4333,248 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Replayed one bounded request."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "replay_request"
+                },
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "scheme": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "https"
+                      ]
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    }
+                  },
+                  "required": [
+                    "scheme",
+                    "host",
+                    "port"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation",
+                "target"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_replay_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_replay_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -1938,69 +4624,221 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Ran one Caido workflow."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "run_workflow"
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_run_workflow"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_run_workflow"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -2044,69 +4882,222 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Selected one Caido project."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "select_project"
+                }
+              },
+              "required": [
+                "projectId",
+                "requestIds",
+                "mutation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_select_project"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_select_project"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -2187,69 +5178,248 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Sent one bounded raw request."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "send_raw_request"
+                },
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "scheme": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "https"
+                      ]
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    }
+                  },
+                  "required": [
+                    "scheme",
+                    "host",
+                    "port"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation",
+                "target"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_send_raw_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_send_raw_request"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -2291,69 +5461,221 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Set Caido Intercept state."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "set_intercept"
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_set_intercept"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_set_intercept"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -2408,69 +5730,221 @@ Every tool returns this strict envelope. Each tool section below supplies its ex
 }
 ```
 
-**Success data schema:** This is the exact `data` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "summary": {
-      "type": "string"
-    },
-    "evidence": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectId": {
-          "type": "string"
+        "ok": {
+          "type": "boolean",
+          "const": true
         },
-        "requestIds": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "const": "Updated one Caido finding."
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string"
+                },
+                "requestIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mutation": {
+                  "type": "string",
+                  "const": "update_finding"
+                }
+              },
+              "required": [
+                "requestIds",
+                "mutation"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "summary",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_update_finding"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "meta",
+        "warnings",
+        "data"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "const": "caido_update_finding"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "untrusted": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "mutation": {
-          "type": "string"
-        },
-        "target": {
+        "error": {
           "type": "object",
           "properties": {
-            "scheme": {
+            "code": {
               "type": "string",
               "enum": [
-                "http",
-                "https"
+                "AUTH_REQUIRED",
+                "AUTH_FAILED",
+                "CAIDO_UNREACHABLE",
+                "INVALID_INPUT",
+                "INVALID_HTTPQL",
+                "NOT_FOUND",
+                "OUT_OF_SCOPE",
+                "TOOL_DISABLED",
+                "TIMEOUT",
+                "RATE_LIMITED",
+                "UPSTREAM_ERROR",
+                "INTERNAL_ERROR"
               ]
             },
-            "host": {
+            "message": {
               "type": "string"
             },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
+            "retryable": {
+              "type": "boolean"
+            },
+            "remediation": {
+              "type": "string"
             }
           },
           "required": [
-            "scheme",
-            "host",
-            "port"
+            "code",
+            "message",
+            "retryable"
           ],
           "additionalProperties": false
         }
       },
       "required": [
-        "requestIds",
-        "mutation"
-      ],
-      "additionalProperties": false
+        "ok",
+        "meta",
+        "warnings",
+        "error"
+      ]
     }
-  },
-  "required": [
-    "summary",
-    "evidence"
-  ],
-  "additionalProperties": false
+  ]
 }
 ```
 

@@ -56,7 +56,7 @@ function tool(
     description: "Security pipeline test tool.",
     mode: "read-only",
     inputSchema: z.strictObject({}),
-    outputSchema: resultSchema(z.unknown()),
+    outputSchema: resultSchema(name, z.unknown()),
     annotations: readOnlyAnnotations,
     handler,
   };

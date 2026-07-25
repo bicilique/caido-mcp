@@ -4,8 +4,9 @@ import { z } from "zod";
 
 import type { ToolDefinition } from "../../registry.js";
 import {
+  ACTIVE_MUTATION_CONTRACTS,
+  activeMutationDataSchema,
   asRecord,
-  MutationDataSchema,
   resultSchema,
 } from "../shared.js";
 import {
@@ -28,7 +29,10 @@ export function managementTools(
       inputSchema: z.strictObject({
         projectId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_select_project",
+        activeMutationDataSchema("caido_select_project"),
+      ),
       annotations: activeAnnotations(false, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -36,7 +40,10 @@ export function managementTools(
         return asRecord(
           successResult(
             "caido_select_project",
-            mutationData("Selected one Caido project.", evidence),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_select_project.summary,
+              evidence,
+            ),
             {
               ...(evidence.projectId === undefined
                 ? {}
@@ -57,7 +64,10 @@ export function managementTools(
         description: z.string().max(options.bodyLimit),
         requestId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_create_finding",
+        activeMutationDataSchema("caido_create_finding"),
+      ),
       annotations: activeAnnotations(false, false, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -69,7 +79,10 @@ export function managementTools(
         return asRecord(
           successResult(
             "caido_create_finding",
-            mutationData("Created one Caido finding.", evidence),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_create_finding.summary,
+              evidence,
+            ),
             { requestIds: [...evidence.requestIds] },
           ),
         );
@@ -85,7 +98,10 @@ export function managementTools(
         title: z.string().trim().min(1).max(256),
         description: z.string().max(options.bodyLimit),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_update_finding",
+        activeMutationDataSchema("caido_update_finding"),
+      ),
       annotations: activeAnnotations(true, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -99,7 +115,10 @@ export function managementTools(
         return asRecord(
           successResult(
             "caido_update_finding",
-            mutationData("Updated one Caido finding.", evidence),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_update_finding.summary,
+              evidence,
+            ),
             { requestIds: [...evidence.requestIds] },
           ),
         );
@@ -111,7 +130,10 @@ export function managementTools(
         "Sets Caido Intercept to one explicit enabled state and returns mutation evidence. The installed production SDK may return TOOL_DISABLED because it does not expose Intercept control. It never retries automatically.",
       mode: "active",
       inputSchema: z.strictObject({ enabled: z.boolean() }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_set_intercept",
+        activeMutationDataSchema("caido_set_intercept"),
+      ),
       annotations: activeAnnotations(true, true, false),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -119,7 +141,10 @@ export function managementTools(
         return asRecord(
           successResult(
             "caido_set_intercept",
-            mutationData("Set Caido Intercept state.", evidence),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_set_intercept.summary,
+              evidence,
+            ),
             { requestIds: [...evidence.requestIds] },
           ),
         );
@@ -134,7 +159,10 @@ export function managementTools(
         workflowId: z.string().min(1).max(256),
         requestId: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_run_workflow",
+        activeMutationDataSchema("caido_run_workflow"),
+      ),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -145,7 +173,10 @@ export function managementTools(
         return asRecord(
           successResult(
             "caido_run_workflow",
-            mutationData("Ran one Caido workflow.", evidence),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_run_workflow.summary,
+              evidence,
+            ),
             { requestIds: [...evidence.requestIds] },
           ),
         );

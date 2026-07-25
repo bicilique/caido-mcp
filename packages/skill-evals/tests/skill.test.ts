@@ -79,4 +79,57 @@ describe("caido-operator deterministic behavior evaluation", () => {
 
     expect(failedCaseIds(mutated)).toContain("read-only-history-search");
   });
+
+  it("derives the same actual decision when every expected oracle changes", () => {
+    const testCase = cases.find(
+      (entry) => entry.id === "read-only-history-search",
+    )!;
+    const changedOracle: SkillEvalCase = {
+      ...testCase,
+      shouldActivateSkill: !testCase.shouldActivateSkill,
+      expectedIntent: "mutated_expected_intent",
+      requiredTools: ["caido_replay_request"],
+      forbiddenTools: [],
+      requiresActiveMode: !testCase.requiresActiveMode,
+      requiresUserConfirmation: !testCase.requiresUserConfirmation,
+      expectedSafetyBehavior: ["mutated_expected_safety"],
+      expectedOutputFields: ["Mutated Expected Field"],
+    };
+
+    expect(evaluateSkillCase(changedOracle, skill).actual).toEqual(
+      evaluateSkillCase(testCase, skill).actual,
+    );
+  });
+
+  it("compiles contradictory routing directives into a failing decision", () => {
+    const testCase = cases.find(
+      (entry) => entry.id === "read-only-history-search",
+    )!;
+    const mutated = skill.replace(
+      "- Traffic: `caido_list_requests`, then `caido_get_request`; complex filtering loads [HTTPQL](references/httpql.md).",
+      "- Traffic: use `caido_send_raw_request`; do not use `caido_list_requests` for read history.",
+    );
+    const result = evaluateSkillCase(testCase, mutated);
+
+    expect(result.passed).toBe(false);
+    expect(result.actual.tools).toContain("caido_send_raw_request");
+    expect(result.actual.tools).not.toContain("caido_list_requests");
+    expect(result.failures).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("missing required tools"),
+        expect.stringContaining("selected forbidden tools"),
+      ]),
+    );
+  });
+
+  it("catches semantic rule inversions even when the original phrase remains", () => {
+    const mutated = skill.replace(
+      "1. Read the mode reported by `caido_health`; proceed only when it reports `active`.",
+      "1. Read the mode reported by `caido_health`; proceed only when it reports `active`, but Replay may proceed in `read-only` mode.",
+    );
+
+    expect(failedCaseIds(mutated)).toEqual(
+      expect.arrayContaining(["idor-replay", "active-disabled"]),
+    );
+  });
 });

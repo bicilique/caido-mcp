@@ -1,5 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
@@ -19,29 +19,68 @@ type JsonSchemaObject = {
   [key: string]: unknown;
 };
 
-function outputSchemaParts(schema: z.ZodType): {
-  commonEnvelope: JsonSchemaObject;
-  data: unknown;
-} {
+export function toolOutputJsonSchema(schema: z.ZodType): JsonSchemaObject {
   const generated = z.toJSONSchema(schema) as JsonSchemaObject;
-  const properties = { ...generated.properties };
-  const data = properties.data;
-  if (data === undefined) {
-    throw new Error("Tool output schema has no success data field.");
+  if (
+    generated.type !== "object" ||
+    generated.properties?.data === undefined ||
+    generated.properties.error === undefined ||
+    generated.properties.meta === undefined
+  ) {
+    throw new Error("Tool output schema is not a complete result envelope.");
   }
-  delete properties.data;
-  const { $defs, ...envelope } = generated;
+  const { $schema, $defs, properties, required: baseRequired = [], ...base } =
+    generated;
+  const successProperties = structuredClone(properties);
+  successProperties.ok = { type: "boolean", const: true };
+  delete successProperties.error;
+  const errorProperties = structuredClone(properties);
+  errorProperties.ok = { type: "boolean", const: false };
+  delete errorProperties.data;
+
   return {
-    commonEnvelope: {
-      ...envelope,
-      properties,
-      required: generated.required?.filter((field) => field !== "data"),
-    },
-    data:
-      $defs === undefined || typeof data !== "object" || data === null
-        ? data
-        : { ...data, $defs },
+    ...($schema === undefined ? {} : { $schema }),
+    ...($defs === undefined ? {} : { $defs }),
+    oneOf: [
+      {
+        ...base,
+        type: "object",
+        properties: successProperties,
+        required: [...new Set([...baseRequired, "data"])],
+        additionalProperties: false,
+      },
+      {
+        ...base,
+        type: "object",
+        properties: errorProperties,
+        required: [...new Set([...baseRequired, "error"])],
+        additionalProperties: false,
+      },
+    ],
   };
+}
+
+export async function readSkillMarkdownTree(root: string): Promise<string> {
+  const documents: string[] = [];
+  const walk = async (directory: string): Promise<void> => {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) =>
+      left.name.localeCompare(right.name),
+    )) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (
+        entry.isFile() &&
+        entry.name.endsWith(".md") &&
+        basename(path) !== "tool-selection.md"
+      ) {
+        documents.push(await readFile(path, "utf8"));
+      }
+    }
+  };
+  await walk(root);
+  return documents.join("\n");
 }
 
 export function assertDocumentedRegistry(
@@ -50,6 +89,12 @@ export function assertDocumentedRegistry(
 ): void {
   const errors: string[] = [];
   const names = new Set<string>();
+  const annotationKeys = [
+    "destructiveHint",
+    "idempotentHint",
+    "openWorldHint",
+    "readOnlyHint",
+  ];
 
   for (const tool of tools) {
     if (names.has(tool.name)) {
@@ -59,11 +104,24 @@ export function assertDocumentedRegistry(
     if (tool.description.trim().length === 0) {
       errors.push(`${tool.name} has no description`);
     }
+    const actualAnnotationKeys =
+      tool.annotations === undefined
+        ? []
+        : Object.keys(tool.annotations).sort((left, right) =>
+            left.localeCompare(right),
+          );
     if (
-      tool.annotations === undefined ||
-      Object.values(tool.annotations).some((value) => typeof value !== "boolean")
+      actualAnnotationKeys.length !== annotationKeys.length ||
+      actualAnnotationKeys.some(
+        (key, index) => key !== annotationKeys[index],
+      ) ||
+      Object.values(tool.annotations ?? {}).some(
+        (value) => typeof value !== "boolean",
+      )
     ) {
-      errors.push(`${tool.name} has incomplete annotations`);
+      errors.push(
+        `${tool.name} must define exactly four annotation keys with boolean values`,
+      );
     }
     for (const [label, schema] of [
       ["input", tool.inputSchema],
@@ -73,6 +131,9 @@ export function assertDocumentedRegistry(
         const generated = z.toJSONSchema(schema);
         if (generated.type !== "object") {
           errors.push(`${tool.name} has no ${label} object schema`);
+        }
+        if (label === "output") {
+          toolOutputJsonSchema(schema);
         }
       } catch {
         errors.push(`${tool.name} has an invalid ${label} schema`);
@@ -102,7 +163,6 @@ export function renderToolReference(
   if (tools.length === 0) {
     throw new Error("Cannot render an empty tool registry.");
   }
-  const sharedEnvelope = outputSchemaParts(tools[0]!.outputSchema).commonEnvelope;
   const sections = [...tools]
     .sort((left, right) => left.name.localeCompare(right.name))
     .map(
@@ -122,10 +182,10 @@ export function renderToolReference(
 ${jsonSchema(tool.inputSchema)}
 \`\`\`
 
-**Success data schema:** This is the exact \`data\` member inside the shared output envelope.
+**Output schema:** This complete discriminated schema accepts exactly one success or error state.
 
 \`\`\`json
-${JSON.stringify(outputSchemaParts(tool.outputSchema).data, null, 2)}
+${JSON.stringify(toolOutputJsonSchema(tool.outputSchema), null, 2)}
 \`\`\`
 
 **Errors:** Uses the stable Caido Agent Kit error envelope.
@@ -144,14 +204,6 @@ ${JSON.stringify(outputSchemaParts(tool.outputSchema).data, null, 2)}
 
 Generated from the canonical MCP registry. Do not edit manually.
 
-## Shared Output Envelope
-
-Every tool returns this strict envelope. Each tool section below supplies its exact success \`data\` schema.
-
-\`\`\`json
-${JSON.stringify(sharedEnvelope, null, 2)}
-\`\`\`
-
 ${sections.join("\n")}`;
 }
 
@@ -165,8 +217,8 @@ async function main(): Promise<void> {
     ...createReadOnlyTools(adapter, options),
     ...createActiveTools(adapter, options),
   ];
-  const skillPath = resolve("skills/caido-operator/SKILL.md");
-  const skillDocument = await readFile(skillPath, "utf8");
+  const skillRoot = resolve("skills/caido-operator");
+  const skillDocument = await readSkillMarkdownTree(skillRoot);
   assertDocumentedRegistry(tools, skillDocument);
   await writeFile(
     resolve("skills/caido-operator/references/tool-selection.md"),

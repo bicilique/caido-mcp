@@ -59,6 +59,7 @@ export function trafficTools(
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
       outputSchema: resultSchema(
+        "caido_list_requests",
         z.strictObject({
           items: z.array(RequestSummarySchema),
           nextCursor: z.string().optional(),
@@ -94,7 +95,10 @@ export function trafficTools(
       inputSchema: z.strictObject({
         requestIds: z.array(z.string().min(1)).min(1).max(maxBatch),
       }),
-      outputSchema: resultSchema(z.array(RequestDetailSchema)),
+      outputSchema: resultSchema(
+        "caido_get_request",
+        z.array(RequestDetailSchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = input.requestIds as string[];
@@ -121,7 +125,10 @@ export function trafficTools(
         leftRequestId: z.string().min(1),
         rightRequestId: z.string().min(1),
       }),
-      outputSchema: resultSchema(ResponseComparisonSchema),
+      outputSchema: resultSchema(
+        "caido_diff_responses",
+        ResponseComparisonSchema,
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
         const ids = [
@@ -165,7 +172,10 @@ export function trafficTools(
         depth: z.number().int().min(1).max(10).default(3),
         limit: z.number().int().min(1).max(maxBatch).default(maxBatch),
       }),
-      outputSchema: resultSchema(z.array(SitemapNodeSchema)),
+      outputSchema: resultSchema(
+        "caido_list_sitemap",
+        z.array(SitemapNodeSchema),
+      ),
       annotations: readOnlyAnnotations,
       handler: async (input) =>
         asRecord(

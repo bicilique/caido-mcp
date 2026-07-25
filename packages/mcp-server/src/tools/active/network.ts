@@ -4,8 +4,9 @@ import { z } from "zod";
 
 import type { ToolDefinition } from "../../registry.js";
 import {
+  ACTIVE_MUTATION_CONTRACTS,
+  activeMutationDataSchema,
   asRecord,
-  MutationDataSchema,
   resultSchema,
 } from "../shared.js";
 import {
@@ -46,7 +47,10 @@ export function networkTools(
         body: z.string().max(options.bodyLimit),
         contentType: z.string().min(1).max(256),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_replay_request",
+        activeMutationDataSchema("caido_replay_request"),
+      ),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -75,7 +79,11 @@ export function networkTools(
         return asRecord(
           successResult(
             "caido_replay_request",
-            mutationData("Replayed one bounded request.", evidence, target),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_replay_request.summary,
+              evidence,
+              target,
+            ),
             { requestIds: [...evidence.requestIds], untrusted: true },
           ),
         );
@@ -100,7 +108,10 @@ export function networkTools(
         headers,
         body: z.string().max(options.bodyLimit).optional(),
       }),
-      outputSchema: resultSchema(MutationDataSchema),
+      outputSchema: resultSchema(
+        "caido_send_raw_request",
+        activeMutationDataSchema("caido_send_raw_request"),
+      ),
       annotations: activeAnnotations(true, false, true),
       handler: async (input, signal) => {
         throwIfAborted(signal);
@@ -121,7 +132,11 @@ export function networkTools(
         return asRecord(
           successResult(
             "caido_send_raw_request",
-            mutationData("Sent one bounded raw request.", evidence, target),
+            mutationData(
+              ACTIVE_MUTATION_CONTRACTS.caido_send_raw_request.summary,
+              evidence,
+              target,
+            ),
             { requestIds: [...evidence.requestIds], untrusted: true },
           ),
         );
