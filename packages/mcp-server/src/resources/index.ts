@@ -1,35 +1,11 @@
-import type {
-  CaidoAdapter,
-  RequestDetail,
-} from "../../../core/src/caido/adapter.js";
+import type { CaidoAdapter } from "../../../core/src/caido/adapter.js";
 import { successResult } from "../../../core/src/result.js";
-import { boundBody } from "../../../core/src/security/body-limits.js";
-import { redactHeaders } from "../../../core/src/security/redaction.js";
 import type { ResourceDefinition } from "./types.js";
+import { asRecord, secureRequestDetail } from "../tools/shared.js";
 
 interface ResourceOptions {
   bodyLimit: number;
   maxBatch: number;
-}
-
-const asRecord = (value: unknown) => value as Record<string, unknown>;
-
-function secureRequest(request: RequestDetail, bodyLimit: number) {
-  const secure = (message: RequestDetail["request"]) => ({
-    headers: redactHeaders(message.headers),
-    body: boundBody(message.body, message.contentType, {
-      offset: 0,
-      limit: bodyLimit,
-      hardLimit: bodyLimit,
-    }),
-  });
-  return {
-    ...request,
-    request: secure(request.request),
-    ...(request.response === undefined
-      ? {}
-      : { response: secure(request.response) }),
-  };
 }
 
 function variable(
@@ -108,7 +84,9 @@ export function createReadOnlyResources(
         return asRecord(
           successResult(
             "caido_get_request",
-            requests.map((request) => secureRequest(request, options.bodyLimit)),
+            requests.map((request) =>
+              secureRequestDetail(request, options.bodyLimit),
+            ),
             {
               requestIds: [id],
               untrusted: true,

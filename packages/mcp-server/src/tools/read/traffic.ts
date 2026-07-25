@@ -5,7 +5,6 @@ import type {
   RequestDetail,
 } from "../../../../core/src/caido/adapter.js";
 import { successResult } from "../../../../core/src/result.js";
-import { boundBody } from "../../../../core/src/security/body-limits.js";
 import { fingerprintResponse } from "../../../../core/src/security/fingerprint.js";
 import { redactHeaders } from "../../../../core/src/security/redaction.js";
 import type { ToolDefinition } from "../../registry.js";
@@ -15,25 +14,8 @@ import {
   objectData,
   readOnlyAnnotations,
   resultSchema,
+  secureRequestDetail,
 } from "../shared.js";
-
-function secureRequest(request: RequestDetail, bodyLimit: number) {
-  const secureMessage = (message: RequestDetail["request"]) => ({
-    headers: redactHeaders(message.headers),
-    body: boundBody(message.body, message.contentType, {
-      offset: 0,
-      limit: bodyLimit,
-      hardLimit: bodyLimit,
-    }),
-  });
-  return {
-    ...request,
-    request: secureMessage(request.request),
-    ...(request.response === undefined
-      ? {}
-      : { response: secureMessage(request.response) }),
-  };
-}
 
 export function trafficTools(
   adapter: CaidoAdapter,
@@ -84,7 +66,7 @@ export function trafficTools(
         return asRecord(
           successResult(
             "caido_get_request",
-            requests.map((request) => secureRequest(request, bodyLimit)),
+            requests.map((request) => secureRequestDetail(request, bodyLimit)),
             {
               requestIds: ids,
               untrusted: true,

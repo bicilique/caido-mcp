@@ -9,10 +9,12 @@ import {
   objectData,
   readOnlyAnnotations,
   resultSchema,
+  serializeBody,
 } from "../shared.js";
 
 export function knowledgeTools(
   adapter: CaidoAdapter,
+  bodyLimit: number,
   maxBatch: number,
 ): ToolDefinition[] {
   const paged = (
@@ -50,14 +52,25 @@ export function knowledgeTools(
       inputSchema: z.strictObject({ id: z.string().min(1) }),
       outputSchema: resultSchema(objectData.nullable()),
       annotations: readOnlyAnnotations,
-      handler: async (input) =>
-        asRecord(
+      handler: async (input) => {
+        const finding = await adapter.getFinding(input.id as string);
+        return asRecord(
           successResult(
             "caido_get_finding",
-            (await adapter.getFinding(input.id as string)) ?? null,
+            finding === undefined
+              ? null
+              : {
+                  ...finding,
+                  evidence: serializeBody(
+                    new TextEncoder().encode(finding.evidence),
+                    "text/plain",
+                    bodyLimit,
+                  ),
+                },
             { untrusted: true, source: "caido_project_data" },
           ),
-        ),
+        );
+      },
     },
     paged(
       "caido_list_replay_sessions",

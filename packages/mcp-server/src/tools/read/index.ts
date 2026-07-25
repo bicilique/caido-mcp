@@ -16,6 +16,6 @@ export function createReadOnlyTools(
   return [
     ...projectTools(adapter, options.maxBatch),
     ...trafficTools(adapter, options.bodyLimit, options.maxBatch),
-    ...knowledgeTools(adapter, options.maxBatch),
+    ...knowledgeTools(adapter, options.bodyLimit, options.maxBatch),
   ];
 }

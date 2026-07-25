@@ -3,6 +3,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createServer } from "../src/server.js";
+import { createToolExecutor } from "../src/execution/pipeline.js";
 import { createReadOnlyTools } from "../src/tools/read/index.js";
 import { createTestAdapter } from "./support/adapter.js";
 
@@ -29,6 +30,21 @@ afterEach(async () => Promise.all(closers.splice(0).map((close) => close())));
 async function clientFor(adapter = createTestAdapter()) {
   const server = createServer({
     mode: "read-only",
+    executor: createToolExecutor({
+      config: {
+        caidoUrl: "http://127.0.0.1:8080",
+        mode: "read-only",
+        requireScope: true,
+        allowSensitiveHeaders: false,
+        bodyLimit: 4096,
+        maxBatch: 20,
+        requestTimeoutMs: 1_000,
+        auditLog: "/unused/audit.jsonl",
+        tokenCache: "/unused/tokens.json",
+      },
+      auditLogger: { record: async () => undefined },
+      rateLimiter: { consume: () => undefined },
+    }),
     tools: createReadOnlyTools(adapter, {
       bodyLimit: 4096,
       maxBatch: 20,
@@ -78,7 +94,7 @@ describe("read-only tool catalog", () => {
     );
 
     const result = await client.callTool({ name: "caido_health", arguments: {} });
-    expect(result.structuredContent).toEqual({
+    expect(result.structuredContent).toMatchObject({
       ok: true,
       data: {
         reachable: true,
@@ -89,5 +105,75 @@ describe("read-only tool catalog", () => {
       warnings: [],
     });
     expect(JSON.stringify(result)).not.toMatch(/token|authorization|cookie/i);
+  });
+
+  it("redacts JSON credentials and query credentials in request evidence", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        getRequests: async () => [
+          {
+            id: "request-1",
+            method: "POST",
+            host: "example.test",
+            path: "/api/profile?access_token=query-secret&view=public",
+            scheme: "https",
+            port: 443,
+            requestLength: 80,
+            responseLength: 0,
+            createdAt: "2026-07-25T00:00:00.000Z",
+            request: {
+              headers: [["content-type", "application/json"]],
+              contentType: "application/json",
+              body: new TextEncoder().encode(
+                JSON.stringify({ profile: { accessToken: "json-secret" } }),
+              ),
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await client.callTool({
+      name: "caido_get_request",
+      arguments: { requestIds: ["request-1"] },
+    });
+
+    const serialized = JSON.stringify(result.structuredContent);
+    expect(serialized).not.toContain("json-secret");
+    expect(serialized).not.toContain("query-secret");
+    expect(serialized).toContain("[REDACTED]");
+    expect(serialized).toContain("view=public");
+  });
+
+  it("redacts header-like credentials from non-JSON request evidence", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        getRequests: async () => [
+          {
+            id: "request-2",
+            method: "GET",
+            host: "example.test",
+            path: "/status",
+            scheme: "https",
+            port: 443,
+            requestLength: 40,
+            responseLength: 0,
+            createdAt: "2026-07-25T00:00:00.000Z",
+            request: {
+              headers: [],
+              contentType: "text/plain",
+              body: new TextEncoder().encode("Authorization: Bearer text-secret"),
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await client.callTool({
+      name: "caido_get_request",
+      arguments: { requestIds: ["request-2"] },
+    });
+
+    expect(JSON.stringify(result.structuredContent)).not.toContain("text-secret");
   });
 });
