@@ -67,12 +67,14 @@ export function trafficTools(
       ),
       annotations: readOnlyAnnotations,
       handler: async (input) => {
-        const page = await adapter.listRequests(input as {
-          httpql?: string;
-          cursor?: string;
-          direction: "ascending" | "descending";
-          limit: number;
-        });
+        const page = await adapter.listRequests(
+          input as {
+            httpql?: string;
+            cursor?: string;
+            direction: "ascending" | "descending";
+            limit: number;
+          },
+        );
         return asRecord(
           successResult(
             "caido_list_requests",
@@ -181,7 +183,10 @@ export function trafficTools(
         asRecord(
           successResult(
             "caido_list_sitemap",
-            await adapter.listSitemap(input.depth as number, input.limit as number),
+            await adapter.listSitemap(
+              input.depth as number,
+              input.limit as number,
+            ),
             { untrusted: true, source: "caido_http_traffic" },
           ),
         ),

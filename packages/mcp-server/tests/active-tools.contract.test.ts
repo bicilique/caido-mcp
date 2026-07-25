@@ -56,7 +56,8 @@ async function harness(
     ],
   });
   const client = new Client({ name: "active-contract", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   await Promise.all([
     server.connect(serverTransport),
     client.connect(clientTransport),
@@ -491,20 +492,23 @@ describe("active tool catalog", () => {
     { headers: [["X-Test", "safe\r\nInjected: yes"]] },
     { headers: [["Bad Header", "safe"]] },
     { headers: [["X-Test", "safe\u0000value"]] },
-  ])("rejects unsafe raw headers before the adapter boundary: $headers", async ({ headers }) => {
-    const sendRawRequest = vi.fn();
-    const adapter = createTestAdapter({
-      listScopes: async () =>
-        selectedScope([{ action: "allow", host: "api.test" }]),
-      sendRawRequest,
-    });
-    const { client } = await harness("active", adapter);
-    const result = await client.callTool({
-      name: "caido_send_raw_request",
-      arguments: { method: "GET", url: "https://api.test/", headers },
-    });
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toMatch(/validation|invalid/i);
-    expect(sendRawRequest).not.toHaveBeenCalled();
-  });
+  ])(
+    "rejects unsafe raw headers before the adapter boundary: $headers",
+    async ({ headers }) => {
+      const sendRawRequest = vi.fn();
+      const adapter = createTestAdapter({
+        listScopes: async () =>
+          selectedScope([{ action: "allow", host: "api.test" }]),
+        sendRawRequest,
+      });
+      const { client } = await harness("active", adapter);
+      const result = await client.callTool({
+        name: "caido_send_raw_request",
+        arguments: { method: "GET", url: "https://api.test/", headers },
+      });
+      expect(result.isError).toBe(true);
+      expect(JSON.stringify(result.content)).toMatch(/validation|invalid/i);
+      expect(sendRawRequest).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  successResult,
-  type CaidoAdapter,
-} from "@caido-agent-kit/core";
+import { successResult, type CaidoAdapter } from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
   asRecord,
@@ -25,7 +22,11 @@ export function knowledgeTools(
   maxBatch: number,
 ): ToolDefinition[] {
   const paged = (
-    name: "caido_list_findings" | "caido_list_replay_sessions" | "caido_list_workflows" | "caido_list_filters",
+    name:
+      | "caido_list_findings"
+      | "caido_list_replay_sessions"
+      | "caido_list_workflows"
+      | "caido_list_filters",
     description: string,
     invoke: (input: { cursor?: string; limit: number }) => Promise<unknown>,
     itemSchema: z.ZodType,

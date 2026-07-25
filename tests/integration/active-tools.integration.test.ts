@@ -14,8 +14,14 @@ describe("mock Caido active integration", () => {
   it("selects one project through runtime, official SDK, adapter, and mock HTTP boundary", async () => {
     const mock = await createMockCaidoServer();
     cleanup.push(mock.close);
-    const directory = await mkdtemp(join(tmpdir(), "caido active integration "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido active integration "),
+    );
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -42,7 +48,11 @@ describe("mock Caido active integration", () => {
     const mock = await createMockCaidoServer();
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido missing project "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -63,7 +73,11 @@ describe("mock Caido active integration", () => {
     });
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido active blocked "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -89,7 +103,11 @@ describe("mock Caido active integration", () => {
     });
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido active upstream "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -116,7 +134,11 @@ describe("mock Caido active integration", () => {
     });
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido active replay "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -150,7 +172,11 @@ describe("mock Caido active integration", () => {
     });
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido active timeout "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "active");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "active",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({

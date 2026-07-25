@@ -39,18 +39,18 @@ export function resultSchema<Name extends `caido_${string}`>(
 ): z.ZodObject {
   return z
     .strictObject({
-    ok: z.boolean(),
-    data: data.optional(),
-    meta: metaSchema(tool),
-    warnings: z.array(z.string()),
-    error: z
-      .strictObject({
-        code: z.enum(TOOL_ERROR_CODES),
-        message: z.string(),
-        retryable: z.boolean(),
-        remediation: z.string().optional(),
-      })
-      .optional(),
+      ok: z.boolean(),
+      data: data.optional(),
+      meta: metaSchema(tool),
+      warnings: z.array(z.string()),
+      error: z
+        .strictObject({
+          code: z.enum(TOOL_ERROR_CODES),
+          message: z.string(),
+          retryable: z.boolean(),
+          remediation: z.string().optional(),
+        })
+        .optional(),
     })
     .superRefine((result, context) => {
       if (result.ok) {
@@ -130,10 +130,7 @@ export function serializeBody(
   return { ...bounded, text: redactTextEvidence(bounded.text) };
 }
 
-export function secureRequestDetail(
-  request: RequestDetail,
-  bodyLimit: number,
-) {
+export function secureRequestDetail(request: RequestDetail, bodyLimit: number) {
   const secureMessage = (message: RequestDetail["request"]) => ({
     headers: redactHeaders(message.headers),
     contentType: message.contentType,
@@ -337,7 +334,9 @@ export const ACTIVE_MUTATION_CONTRACTS = {
 
 export type ActiveMutationTool = keyof typeof ACTIVE_MUTATION_CONTRACTS;
 
-export function activeMutationDataSchema(tool: ActiveMutationTool): z.ZodObject {
+export function activeMutationDataSchema(
+  tool: ActiveMutationTool,
+): z.ZodObject {
   const contract = ACTIVE_MUTATION_CONTRACTS[tool];
   const projectId =
     contract.projectId === "required" ? z.string() : z.string().optional();

@@ -1,8 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-type Detector = { label: string; pattern: RegExp };
+type Detector = {
+  label: string;
+  pattern: RegExp;
+  credentialGroup?: number;
+};
 
+const placeholder =
+  "(?!<|operator-supplied|example|test|redacted|your-|e2e-|caido_test)";
 const detectors: readonly Detector[] = [
   {
     label: "private key",
@@ -12,31 +19,76 @@ const detectors: readonly Detector[] = [
   { label: "AWS access key", pattern: /\bAKIA[0-9A-Z]{16}\b/ },
   {
     label: "assigned Caido credential",
-    pattern:
-      /\bCAIDO_(?:PAT|TOKEN)\s*[:=]\s*["']?(?!<|operator-supplied|example|test|redacted|your-)[A-Za-z0-9._~+/=-]{20,}/i,
+    pattern: new RegExp(
+      String.raw`\bCAIDO_(?:PAT|TOKEN)\s*[:=]\s*["']?${placeholder}([A-Za-z0-9._~+/=-]{20,})`,
+      "i",
+    ),
+    credentialGroup: 1,
+  },
+  {
+    label: "Authorization Bearer credential",
+    pattern: new RegExp(
+      String.raw`\bAuthorization\s*:\s*Bearer\s+${placeholder}([A-Za-z0-9._~+/=-]{12,})`,
+      "i",
+    ),
+    credentialGroup: 1,
+  },
+  {
+    label: "API key credential",
+    pattern: new RegExp(
+      String.raw`\bapi[_-]?key\b\s*["']?\s*[:=]\s*["']?${placeholder}([A-Za-z0-9._~+/=-]{12,})`,
+      "i",
+    ),
+    credentialGroup: 1,
+  },
+  {
+    label: "token cache credential",
+    pattern: new RegExp(
+      String.raw`\b(?:access[_-]?token|refresh[_-]?token|accessToken|refreshToken)\b\s*["']?\s*[:=]\s*["']?${placeholder}([A-Za-z0-9._~+/=-]{12,})`,
+      "i",
+    ),
+    credentialGroup: 1,
   },
 ];
 
-const tracked = execFileSync(
+function looksLikeCredential(value: string): boolean {
+  return (
+    value.length >= 16 &&
+    /[a-z]/u.test(value) &&
+    /[A-Z]/u.test(value) &&
+    /\d/u.test(value)
+  );
+}
+
+const rootIndex = process.argv.indexOf("--root");
+const root = resolve(
+  rootIndex === -1 ? process.cwd() : (process.argv[rootIndex + 1] ?? ""),
+);
+const candidates = execFileSync(
   "git",
-  ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+  ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
   { encoding: "utf8" },
 )
   .split("\0")
   .filter(Boolean);
 const findings: string[] = [];
 
-for (const path of tracked) {
+for (const path of candidates) {
   let content: string;
   try {
-    content = readFileSync(path, "utf8");
+    content = readFileSync(resolve(root, path), "utf8");
   } catch {
     continue;
   }
-  for (const [index, line] of content.split(/\r?\n/).entries()) {
+  for (const [index, line] of content.split(/\r?\n/u).entries()) {
     for (const detector of detectors) {
       detector.pattern.lastIndex = 0;
-      if (detector.pattern.test(line)) {
+      const match = detector.pattern.exec(line);
+      if (
+        match !== null &&
+        (detector.credentialGroup === undefined ||
+          looksLikeCredential(match[detector.credentialGroup] ?? ""))
+      ) {
         findings.push(`${path}:${index + 1}: ${detector.label}`);
       }
     }
@@ -48,5 +100,5 @@ if (findings.length > 0) {
   for (const finding of findings) console.error(`- ${finding}`);
   process.exitCode = 1;
 } else {
-  console.log(`Secret scan passed (${tracked.length} tracked files).`);
+  console.log(`Secret scan passed (${candidates.length} candidate files).`);
 }

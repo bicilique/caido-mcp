@@ -27,6 +27,8 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
+      - name: Build required runtime artifacts
+        run: pnpm build
       - name: Unit tests
         run: pnpm test:unit
       - name: Contract tests
@@ -43,8 +45,6 @@ jobs:
         run: pnpm check:generated
       - name: Coverage
         run: pnpm coverage
-      - name: Build
-        run: pnpm build
       - name: High-severity dependency audit
         run: pnpm audit:high
       - name: Secret scan

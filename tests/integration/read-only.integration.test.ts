@@ -15,7 +15,11 @@ describe("mock Caido read-only integration", () => {
     const mock = await createMockCaidoServer();
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido integration "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "read-only");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "read-only",
+    );
     cleanup.push(harness.close);
 
     const health = await harness.client.callTool({
@@ -138,28 +142,41 @@ describe("mock Caido read-only integration", () => {
   ] as const)(
     "maps %s to deterministic %s without leaking boundary details",
     async (httpql, code, retryable) => {
-    const mock = await createMockCaidoServer();
-    cleanup.push(mock.close);
-    const directory = await mkdtemp(join(tmpdir(), "caido integration errors "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "read-only");
-    cleanup.push(harness.close);
+      const mock = await createMockCaidoServer();
+      cleanup.push(mock.close);
+      const directory = await mkdtemp(
+        join(tmpdir(), "caido integration errors "),
+      );
+      const harness = await createIntegrationRuntime(
+        mock.url,
+        directory,
+        "read-only",
+      );
+      cleanup.push(harness.close);
 
-    const result = await harness.client.callTool({
-      name: "caido_list_requests",
-      arguments: { httpql, limit: 2, direction: "descending" },
-    });
-    expect(result.structuredContent).toMatchObject({
-      ok: false,
-      error: { code, retryable },
-    });
-    expect(JSON.stringify(result)).not.toMatch(/integration-secret|stack|graphql/i);
-  });
+      const result = await harness.client.callTool({
+        name: "caido_list_requests",
+        arguments: { httpql, limit: 2, direction: "descending" },
+      });
+      expect(result.structuredContent).toMatchObject({
+        ok: false,
+        error: { code, retryable },
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /integration-secret|stack|graphql/i,
+      );
+    },
+  );
 
   it("represents HTTP auth failure as a deterministic sanitized tool error", async () => {
     const mock = await createMockCaidoServer({ requiredToken: "other-token" });
     cleanup.push(mock.close);
     const directory = await mkdtemp(join(tmpdir(), "caido integration auth "));
-    const harness = await createIntegrationRuntime(mock.url, directory, "read-only");
+    const harness = await createIntegrationRuntime(
+      mock.url,
+      directory,
+      "read-only",
+    );
     cleanup.push(harness.close);
 
     const result = await harness.client.callTool({
@@ -179,7 +196,9 @@ describe("mock Caido read-only integration", () => {
       refreshToken: "integration-refresh",
     });
     cleanup.push(mock.close);
-    const directory = await mkdtemp(join(tmpdir(), "caido integration refresh "));
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido integration refresh "),
+    );
     const harness = await createIntegrationRuntime(
       mock.url,
       directory,

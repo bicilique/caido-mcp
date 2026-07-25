@@ -11,7 +11,9 @@ export interface TemplateResourceDefinition {
   name: string;
   uriTemplate: `caido://${string}`;
   description: string;
-  read(variables: Record<string, string | string[]>): Promise<Record<string, unknown>>;
+  read(
+    variables: Record<string, string | string[]>,
+  ): Promise<Record<string, unknown>>;
 }
 
 export type ResourceDefinition =

@@ -16,32 +16,41 @@ import { readOnlyAnnotations, resultSchema } from "../src/tools/shared.js";
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
+  await Promise.all(
+    directories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
-async function executorFor(options: { timeoutMs?: number; limit?: number } = {}) {
+async function executorFor(
+  options: { timeoutMs?: number; limit?: number } = {},
+) {
   const directory = await mkdtemp(join(tmpdir(), "caido-security-pipeline-"));
   directories.push(directory);
   const auditPath = join(directory, "audit.jsonl");
   return {
     execute: createToolExecutor({
-    config: {
-      caidoUrl: "http://127.0.0.1:8080",
-      mode: "read-only",
-      requireScope: true,
-      allowSensitiveHeaders: false,
-      bodyLimit: 4096,
-      maxBatch: 20,
-      requestTimeoutMs: options.timeoutMs ?? 100,
-      auditLog: auditPath,
-      tokenCache: join(directory, "tokens.json"),
-    },
-    auditLogger: new AuditLogger({
-      path: auditPath,
-      maxBytes: 4096,
-      maxFiles: 2,
-    }),
-    rateLimiter: new RateLimiter({ limit: options.limit ?? 10, windowMs: 1_000 }),
+      config: {
+        caidoUrl: "http://127.0.0.1:8080",
+        mode: "read-only",
+        requireScope: true,
+        allowSensitiveHeaders: false,
+        bodyLimit: 4096,
+        maxBatch: 20,
+        requestTimeoutMs: options.timeoutMs ?? 100,
+        auditLog: auditPath,
+        tokenCache: join(directory, "tokens.json"),
+      },
+      auditLogger: new AuditLogger({
+        path: auditPath,
+        maxBytes: 4096,
+        maxFiles: 2,
+      }),
+      rateLimiter: new RateLimiter({
+        limit: options.limit ?? 10,
+        windowMs: 1_000,
+      }),
     }),
     auditPath,
   };
@@ -101,7 +110,10 @@ describe("security execution pipeline", () => {
     );
     const audit = await readFile(auditPath, "utf8");
 
-    expect(result).toMatchObject({ ok: false, error: { code: "UPSTREAM_ERROR" } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "UPSTREAM_ERROR" },
+    });
     expect(JSON.stringify(result)).not.toContain("agent-error-secret");
     expect(audit).not.toContain("agent-error-secret");
   });
@@ -116,7 +128,11 @@ describe("security execution pipeline", () => {
           new Promise((resolve) => {
             signal.addEventListener("abort", () => {
               aborted = true;
-              resolve({ ok: true, meta: { tool: "caido_security_test" }, warnings: [] });
+              resolve({
+                ok: true,
+                meta: { tool: "caido_security_test" },
+                warnings: [],
+              });
             });
           }),
       ),
@@ -144,12 +160,19 @@ describe("security execution pipeline", () => {
 
   it("returns RATE_LIMITED after the configured tool budget is consumed", async () => {
     const { execute } = await executorFor({ limit: 1 });
-    const definition = tool(async () => ({ ok: true, meta: { tool: "caido_security_test" }, warnings: [] }));
+    const definition = tool(async () => ({
+      ok: true,
+      meta: { tool: "caido_security_test" },
+      warnings: [],
+    }));
 
     await execute(definition, {}, new AbortController().signal);
     const result = await execute(definition, {}, new AbortController().signal);
 
-    expect(result).toMatchObject({ ok: false, error: { code: "RATE_LIMITED" } });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "RATE_LIMITED" },
+    });
   });
 
   it("writes one secret-free audit event for every execution", async () => {
@@ -157,7 +180,11 @@ describe("security execution pipeline", () => {
     const definition = tool(async () => ({
       ok: true,
       data: { accessToken: "result-secret" },
-      meta: { tool: "caido_security_test", requestIds: ["evidence-1"], truncated: true },
+      meta: {
+        tool: "caido_security_test",
+        requestIds: ["evidence-1"],
+        truncated: true,
+      },
       warnings: [],
     }));
 

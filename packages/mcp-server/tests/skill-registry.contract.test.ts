@@ -15,9 +15,9 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -56,9 +56,9 @@ describe("Skill registry reference scan", () => {
     );
     const nestedAssetDocuments = await readSkillMarkdownTree(root);
     expect(nestedAssetDocuments).toContain("caido_nested_asset_unknown");
-    expect(() =>
-      assertDocumentedRegistry(tools, nestedAssetDocuments),
-    ).toThrow(/caido_nested_asset_unknown/);
+    expect(() => assertDocumentedRegistry(tools, nestedAssetDocuments)).toThrow(
+      /caido_nested_asset_unknown/,
+    );
 
     await writeFile(
       join(root, "references", "nested", "manual.md"),
@@ -67,8 +67,8 @@ describe("Skill registry reference scan", () => {
     );
 
     const changedDocuments = await readSkillMarkdownTree(root);
-    expect(() =>
-      assertDocumentedRegistry(tools, changedDocuments),
-    ).toThrow(/caido_nested_unknown/);
+    expect(() => assertDocumentedRegistry(tools, changedDocuments)).toThrow(
+      /caido_nested_unknown/,
+    );
   });
 });

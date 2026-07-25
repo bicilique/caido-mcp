@@ -61,10 +61,14 @@ export class AuditLogger {
     this.#pending = this.#pending.then(async () => {
       await this.#preparePath();
       await this.#rotateIfNeeded();
-      await appendFile(this.#path, `${JSON.stringify(this.#allowlist(event))}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
+      await appendFile(
+        this.#path,
+        `${JSON.stringify(this.#allowlist(event))}\n`,
+        {
+          encoding: "utf8",
+          mode: 0o600,
+        },
+      );
       await chmod(this.#path, 0o600);
     });
     return this.#pending;
@@ -84,9 +88,15 @@ export class AuditLogger {
       tool: event.tool,
       mode: event.mode,
       ...(event.projectId === undefined ? {} : { projectId: event.projectId }),
-      ...(event.requestIds === undefined ? {} : { requestIds: event.requestIds }),
-      ...(event.targetHost === undefined ? {} : { targetHost: event.targetHost }),
-      ...(event.targetPort === undefined ? {} : { targetPort: event.targetPort }),
+      ...(event.requestIds === undefined
+        ? {}
+        : { requestIds: event.requestIds }),
+      ...(event.targetHost === undefined
+        ? {}
+        : { targetHost: event.targetHost }),
+      ...(event.targetPort === undefined
+        ? {}
+        : { targetPort: event.targetPort }),
       ...(event.scopeDecision === undefined
         ? {}
         : { scopeDecision: event.scopeDecision }),

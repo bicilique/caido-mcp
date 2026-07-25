@@ -55,16 +55,13 @@ function populatedAdapter(): CaidoAdapter {
       items: [{ id: "project-1", name: "Project", selected: true }],
     }),
     listRequests: async () => ({ items: [requestDetail] }),
-    getRequests: async (ids) =>
-      ids.map((id) => ({ ...requestDetail, id })),
+    getRequests: async (ids) => ids.map((id) => ({ ...requestDetail, id })),
     listSitemap: async () => [
       {
         id: "host-1",
         label: "example.test",
         kind: "host",
-        children: [
-          { id: "path-1", label: "/", kind: "path", children: [] },
-        ],
+        children: [{ id: "path-1", label: "/", kind: "path", children: [] }],
       },
     ],
     listScopes: async () => [
@@ -107,7 +104,7 @@ function populatedAdapter(): CaidoAdapter {
       items: [{ id: "workflow-1", name: "Workflow", enabled: true }],
     }),
     listFilters: async () => ({
-      items: [{ id: "filter-1", name: "Filter", query: "req.method.eq:\"GET\"" }],
+      items: [{ id: "filter-1", name: "Filter", query: 'req.method.eq:"GET"' }],
     }),
     selectProject: async () => ({
       projectId: "project-1",
@@ -350,22 +347,24 @@ describe("generated tool reference", () => {
     for (const tool of tools) {
       const input = tool.inputSchema.parse(validInputs[tool.name]);
       const success = await tool.handler(input, signal);
-      expect(tool.outputSchema.safeParse(success).success, tool.name).toBe(true);
+      expect(tool.outputSchema.safeParse(success).success, tool.name).toBe(
+        true,
+      );
 
       const failure = errorResult(tool.name, {
         code: "INTERNAL_ERROR",
         message: "The operation could not be completed safely.",
         retryable: false,
       });
-      expect(tool.outputSchema.safeParse(failure).success, tool.name).toBe(true);
+      expect(tool.outputSchema.safeParse(failure).success, tool.name).toBe(
+        true,
+      );
     }
   });
 
   it("requires normalized targets only for active network results", async () => {
     const signal = new AbortController().signal;
-    const replay = tools.find(
-      (tool) => tool.name === "caido_replay_request",
-    )!;
+    const replay = tools.find((tool) => tool.name === "caido_replay_request")!;
     const createFinding = tools.find(
       (tool) => tool.name === "caido_create_finding",
     )!;

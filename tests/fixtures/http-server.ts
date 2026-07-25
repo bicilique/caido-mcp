@@ -40,10 +40,7 @@ export async function closeE2eResources(
   const close = async (resource: Closeable | undefined): Promise<void> => {
     await resource?.close();
   };
-  const results = await Promise.allSettled([
-    close(runtime),
-    close(fixture),
-  ]);
+  const results = await Promise.allSettled([close(runtime), close(fixture)]);
   const failed = results.find(
     (result): result is PromiseRejectedResult => result.status === "rejected",
   );
@@ -87,7 +84,9 @@ export async function startHttpFixture(): Promise<HttpFixture> {
     url,
     close: () => {
       closing ??= new Promise<void>((resolve, reject) => {
-        server.close((error) => (error === undefined ? resolve() : reject(error)));
+        server.close((error) =>
+          error === undefined ? resolve() : reject(error),
+        );
         server.closeAllConnections();
       });
       return closing;

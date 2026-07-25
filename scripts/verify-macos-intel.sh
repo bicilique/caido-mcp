@@ -6,7 +6,8 @@ fail() {
   exit 1
 }
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+default_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+root=${CAIDO_VERIFY_ROOT:-$default_root}
 command -v sw_vers >/dev/null 2>&1 ||
   fail "this verifier must run on macOS (sw_vers was not found)."
 host_arch=$(uname -m)
@@ -27,23 +28,9 @@ server="$root/packages/mcp-server/dist/cli.js"
 [ -x "$root/skills/caido-operator/scripts/verify-mcp.mjs" ] ||
   fail "verify-mcp.mjs is not executable."
 
-node -e '
-const { readdirSync, readFileSync } = require("node:fs");
-const { join } = require("node:path");
-const store = process.argv[1];
-for (const entry of readdirSync(store, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue;
-  const manifest = join(store, entry.name, "node_modules", entry.name.replace(/@[^+]+\\+/g, "@").replace(/\\+.*/, ""), "package.json");
-  try {
-    const pkg = JSON.parse(readFileSync(manifest, "utf8"));
-    if (Array.isArray(pkg.cpu) && pkg.cpu.includes("arm64") && !pkg.cpu.includes("x64")) {
-      throw new Error(`${pkg.name}@${pkg.version} is arm64-only`);
-    }
-  } catch (error) {
-    if (String(error.message).includes("arm64-only")) throw error;
-  }
-}
-' "$root/node_modules/.pnpm" || fail "an installed dependency is arm64-only."
+store=${CAIDO_VERIFY_PNPM_STORE:-"$root/node_modules/.pnpm"}
+dependency_result=$(node "$root/scripts/verify-installed-packages.mjs" "$store") ||
+  fail "installed dependency verification failed."
 
 temp_root=$(mktemp -d "${TMPDIR:-/tmp}/caido agent kit.XXXXXX")
 trap 'rm -rf "$temp_root"' EXIT HUP INT TERM
@@ -51,8 +38,14 @@ spaced_server="$temp_root/server path with spaces.js"
 ln -s "$server" "$spaced_server"
 CAIDO_AUDIT_LOG="$temp_root/audit log.jsonl" \
 CAIDO_TOKEN_CACHE="$temp_root/token cache.json" \
+CAIDO_VERIFY_SENTINEL="${CAIDO_VERIFY_SENTINEL:-}" \
   node "$root/skills/caido-operator/scripts/verify-mcp.mjs" "$spaced_server" >/dev/null
+CAIDO_AUDIT_LOG="$temp_root/audit log.jsonl" \
+CAIDO_TOKEN_CACHE="$temp_root/token cache.json" \
+  "$root/skills/caido-operator/scripts/doctor.sh" >/dev/null
 
 printf 'macOS Intel verification passed: x86_64 host and x64 Node.\n'
+printf 'Installed package manifests: %s\n' "$(printf '%s' "$dependency_result" | sed 's/ .*//')"
 printf 'Verified stdio startup through an absolute path containing spaces.\n'
 printf 'Verified stdout contains JSON-RPC frames only; diagnostics remain on stderr.\n'
+printf 'Verified credential paths and permissions (0700 directories, 0600 files).\n'

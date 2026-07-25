@@ -247,11 +247,7 @@ function sdkFixture() {
           updatedAt: new Date("2026-07-25T00:00:00.000Z"),
         },
       ],
-      run: async (input: {
-        kind: "active";
-        id: string;
-        requestId: string;
-      }) => {
+      run: async (input: { kind: "active"; id: string; requestId: string }) => {
         events.push(`run-workflow:${input.id}:${input.requestId}`);
         return { id: "workflow-task-1" };
       },
@@ -327,10 +323,14 @@ describe("SdkCaidoAdapter", () => {
       ["descending", "req", "created_at"],
       ["first", 10],
     ]);
-    expect(JSON.stringify(await adapter.listRequests({
-      direction: "descending",
-      limit: 1,
-    }))).not.toMatch(/next=%2F|Authorization|hello|world/);
+    expect(
+      JSON.stringify(
+        await adapter.listRequests({
+          direction: "descending",
+          limit: 1,
+        }),
+      ),
+    ).not.toMatch(/next=%2F|Authorization|hello|world/);
     expect(await adapter.listScopes()).toEqual([
       {
         id: "scope-1",
@@ -342,18 +342,19 @@ describe("SdkCaidoAdapter", () => {
         ],
       },
     ]);
-    expect(await adapter.listFindings({ cursor: "finding-cursor", limit: 5 }))
-      .toEqual({
-        items: [
-          {
-            id: "finding-1",
-            title: "Reflected input",
-            severity: "unknown",
-            requestIds: ["request-1"],
-          },
-        ],
-        nextCursor: "next-finding",
-      });
+    expect(
+      await adapter.listFindings({ cursor: "finding-cursor", limit: 5 }),
+    ).toEqual({
+      items: [
+        {
+          id: "finding-1",
+          title: "Reflected input",
+          severity: "unknown",
+          requestIds: ["request-1"],
+        },
+      ],
+      nextCursor: "next-finding",
+    });
     expect(findingsBuilder.calls).toEqual([
       ["after", "finding-cursor"],
       ["first", 5],
@@ -475,23 +476,26 @@ describe("SdkCaidoAdapter", () => {
     { headers: [["X-Test", "safe\r\nInjected: yes"]] },
     { headers: [["Bad Header", "safe"]] },
     { headers: [["X-Test", "safe\u0000value"]] },
-  ] as const)("rejects unsafe raw headers before Replay serialization: $headers", async ({ headers }) => {
-    const { adapter, events } = sdkFixture();
+  ] as const)(
+    "rejects unsafe raw headers before Replay serialization: $headers",
+    async ({ headers }) => {
+      const { adapter, events } = sdkFixture();
 
-    await expect(
-      adapter.sendRawRequest({
-        method: "GET",
-        url: "https://example.com/",
-        headers,
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<AgentError>>({
-        code: "INVALID_INPUT",
-        retryable: false,
-      }),
-    );
-    expect(events).toEqual([]);
-  });
+      await expect(
+        adapter.sendRawRequest({
+          method: "GET",
+          url: "https://example.com/",
+          headers,
+        }),
+      ).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "INVALID_INPUT",
+          retryable: false,
+        }),
+      );
+      expect(events).toEqual([]);
+    },
+  );
 
   it("accepts a safe raw header at the adapter boundary", async () => {
     const { adapter, events } = sdkFixture();
@@ -781,19 +785,22 @@ describe("SdkCaidoAdapter", () => {
       "numeric HTTP status 404",
       Object.assign(new Error("resource lookup failed"), { status: 404 }),
     ],
-  ])("maps exact not-found evidence from %s", async (_name, boundaryFailure) => {
-    const { adapter, client } = sdkFixture();
-    client.project.select = async () => {
-      throw boundaryFailure;
-    };
+  ])(
+    "maps exact not-found evidence from %s",
+    async (_name, boundaryFailure) => {
+      const { adapter, client } = sdkFixture();
+      client.project.select = async () => {
+        throw boundaryFailure;
+      };
 
-    await expect(adapter.selectProject("missing-project")).rejects.toEqual(
-      expect.objectContaining<Partial<AgentError>>({
-        code: "NOT_FOUND",
-        retryable: false,
-      }),
-    );
-  });
+      await expect(adapter.selectProject("missing-project")).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "NOT_FOUND",
+          retryable: false,
+        }),
+      );
+    },
+  );
 
   it("keeps invalid-token failures on credential remediation", async () => {
     const { adapter, client } = sdkFixture();
@@ -814,10 +821,7 @@ describe("SdkCaidoAdapter", () => {
   });
 
   it.each([
-    [
-      "PermissionDeniedUserError",
-      new PermissionDeniedUserError(),
-    ],
+    ["PermissionDeniedUserError", new PermissionDeniedUserError()],
     [
       "AuthorizationUserError FORBIDDEN",
       new AuthorizationUserError({
@@ -953,17 +957,20 @@ describe("SdkCaidoAdapter", () => {
       (adapter: SdkCaidoAdapter) =>
         adapter.updateFinding("finding-1", { requestIds: [] }),
     ],
-  ])("rejects unsupported finding field by presence: %s", async (_name, call) => {
-    const { adapter, events } = sdkFixture();
+  ])(
+    "rejects unsupported finding field by presence: %s",
+    async (_name, call) => {
+      const { adapter, events } = sdkFixture();
 
-    await expect(call(adapter)).rejects.toEqual(
-      expect.objectContaining<Partial<AgentError>>({
-        code: "TOOL_DISABLED",
-        retryable: false,
-      }),
-    );
-    expect(events).toEqual([]);
-  });
+      await expect(call(adapter)).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "TOOL_DISABLED",
+          retryable: false,
+        }),
+      );
+      expect(events).toEqual([]);
+    },
+  );
 
   it("rejects an empty supported create request ID before SDK mutation", async () => {
     const { adapter, events } = sdkFixture();
@@ -1027,14 +1034,17 @@ describe("SdkCaidoAdapter", () => {
   it.each([
     ["listSitemap", (adapter: SdkCaidoAdapter) => adapter.listSitemap(3, 20)],
     ["setIntercept", (adapter: SdkCaidoAdapter) => adapter.setIntercept(true)],
-  ])("returns a typed error when %s lacks required SDK inputs", async (_name, call) => {
-    const { adapter } = sdkFixture();
+  ])(
+    "returns a typed error when %s lacks required SDK inputs",
+    async (_name, call) => {
+      const { adapter } = sdkFixture();
 
-    await expect(call(adapter)).rejects.toEqual(
-      expect.objectContaining<Partial<AgentError>>({
-        code: "TOOL_DISABLED",
-        retryable: false,
-      }),
-    );
-  });
+      await expect(call(adapter)).rejects.toEqual(
+        expect.objectContaining<Partial<AgentError>>({
+          code: "TOOL_DISABLED",
+          retryable: false,
+        }),
+      );
+    },
+  );
 });

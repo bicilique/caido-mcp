@@ -13,7 +13,7 @@ corepack pnpm build
 bash scripts/verify-macos-intel.sh
 ```
 
-Skrip memeriksa arsitektur host/Node, dependency arm64-only, izin executable, startup stdio dari absolute path yang mengandung spasi, dan kemurnian JSON-RPC stdout. Ia tidak memakai `/proc`, tidak mengasumsikan `/opt/homebrew`, dan memanggil child process sebagai array argumen tanpa shell interpolation.
+Skrip menghitung manifest paket pnpm yang benar-benar terpasang, termasuk paket scoped, lalu menolak nol manifest serta metadata `cpu`, `os`, atau binary yang arm64-only/tidak kompatibel dengan macOS x64. Skrip juga memeriksa izin executable, startup stdio dari absolute path yang mengandung spasi, seluruh frame JSON-RPC stdout, dan lifecycle shutdown berbatas. Ia tidak memakai `/proc`, tidak mengasumsikan `/opt/homebrew`, dan memanggil child process sebagai array argumen tanpa shell interpolation.
 
 ## Path dan Data Pengguna
 

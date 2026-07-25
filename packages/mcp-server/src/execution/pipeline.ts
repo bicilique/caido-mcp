@@ -55,7 +55,9 @@ function errorFrom(result: Record<string, unknown>): ToolError | undefined {
     : undefined;
 }
 
-function redactResult(result: Record<string, unknown>): Record<string, unknown> {
+function redactResult(
+  result: Record<string, unknown>,
+): Record<string, unknown> {
   const redacted = asRecord(redactStructured(result));
   return { ...redacted, meta: metaFrom(redacted) };
 }
@@ -116,8 +118,11 @@ export function createToolExecutor(options: ToolExecutorOptions): ToolExecutor {
       timestamp: new Date().toISOString(),
       tool: tool.name,
       mode: options.config.mode,
-      ...(typeof meta.projectId === "string" ? { projectId: meta.projectId } : {}),
-      ...(Array.isArray(meta.requestIds) && meta.requestIds.every((id) => typeof id === "string")
+      ...(typeof meta.projectId === "string"
+        ? { projectId: meta.projectId }
+        : {}),
+      ...(Array.isArray(meta.requestIds) &&
+      meta.requestIds.every((id) => typeof id === "string")
         ? { requestIds: meta.requestIds }
         : {}),
       success: result.ok === true,

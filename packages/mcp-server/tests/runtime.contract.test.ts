@@ -25,7 +25,9 @@ afterEach(async () => {
 
 describe("production runtime", () => {
   it("assembles read-only discovery through the execution pipeline and audit log", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "caido runtime with spaces "));
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido runtime with spaces "),
+    );
     directories.push(directory);
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
@@ -69,9 +71,9 @@ describe("production runtime", () => {
 
     await client.close();
     await runtime.close();
-    expect(await readFile(join(directory, "audit log.jsonl"), "utf8")).toContain(
-      '"tool":"caido_health"',
-    );
+    expect(
+      await readFile(join(directory, "audit log.jsonl"), "utf8"),
+    ).toContain('"tool":"caido_health"');
   });
 
   it("handles SIGTERM by closing MCP, adapter, and audit resources before exit", async () => {
@@ -126,7 +128,9 @@ describe("production runtime", () => {
   });
 
   it("installs signal cleanup before a slow SDK connection completes", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "caido runtime startup signal "));
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido runtime startup signal "),
+    );
     directories.push(directory);
     const signals = new EventEmitter();
     const events: string[] = [];
@@ -179,12 +183,7 @@ describe("production runtime", () => {
     await runtime.closed;
     await expect.poll(() => events.includes("exit:0")).toBe(true);
 
-    expect(events).toEqual([
-      "adapter",
-      "audit-flush",
-      "audit-close",
-      "exit:0",
-    ]);
+    expect(events).toEqual(["adapter", "audit-flush", "audit-close", "exit:0"]);
   });
 
   it("owns timed-out SDK initialization and closes a late successful connection", async () => {
@@ -204,9 +203,7 @@ describe("production runtime", () => {
           }): Promise<void>;
         }
       | undefined;
-    let state:
-      | { initializationError?: { code: string } }
-      | undefined;
+    let state: { initializationError?: { code: string } } | undefined;
     const [, serverTransport] = InMemoryTransport.createLinkedPair();
     const pendingRuntime = createRuntime(
       {
@@ -327,7 +324,9 @@ describe("production runtime", () => {
   );
 
   it("attempts every cleanup and resolves closed when cleanup rejects", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "caido runtime cleanup failure "));
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido runtime cleanup failure "),
+    );
     directories.push(directory);
     const events: string[] = [];
     const [, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -378,7 +377,9 @@ describe("production runtime", () => {
   });
 
   it("fully cleans up and rejects when MCP server connection fails", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "caido runtime connect failure "));
+    const directory = await mkdtemp(
+      join(tmpdir(), "caido runtime connect failure "),
+    );
     directories.push(directory);
     const signals = new EventEmitter();
     const events: string[] = [];

@@ -69,7 +69,9 @@ export function projectTools(
         asRecord(
           successResult(
             "caido_list_projects",
-            await adapter.listProjects(input as { cursor?: string; limit: number }),
+            await adapter.listProjects(
+              input as { cursor?: string; limit: number },
+            ),
           ),
         ),
     },
@@ -85,7 +87,9 @@ export function projectTools(
       ),
       annotations: readOnlyAnnotations,
       handler: async () =>
-        asRecord(successResult("caido_list_scopes", await adapter.listScopes())),
+        asRecord(
+          successResult("caido_list_scopes", await adapter.listScopes()),
+        ),
     },
     {
       name: "caido_is_in_scope",

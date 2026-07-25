@@ -1,4 +1,8 @@
-import { AgentError, evaluateScope, normalizeTarget } from "@caido-agent-kit/core";
+import {
+  AgentError,
+  evaluateScope,
+  normalizeTarget,
+} from "@caido-agent-kit/core";
 import type {
   CaidoAdapter,
   MutationEvidence,
@@ -54,7 +58,9 @@ export async function requireAllowedTarget(
     throw outOfScope();
   }
 
-  const selected = (await adapter.listScopes()).filter((scope) => scope.selected);
+  const selected = (await adapter.listScopes()).filter(
+    (scope) => scope.selected,
+  );
   throwIfAborted(signal);
   if (selected.length !== 1) {
     throw outOfScope();

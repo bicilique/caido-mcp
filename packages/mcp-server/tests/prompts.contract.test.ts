@@ -13,16 +13,21 @@ describe("MCP prompts", () => {
       prompts: promptDefinitions,
     });
     const client = new Client({ name: "contract", version: "1.0.0" });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
     try {
-      expect((await client.listPrompts()).prompts.map((item) => item.name).sort())
-        .toEqual([
-          "caido_compare_replay_results",
-          "caido_draft_finding",
-          "caido_plan_authorization_test",
-          "caido_triage_http_history",
-        ]);
+      expect(
+        (await client.listPrompts()).prompts.map((item) => item.name).sort(),
+      ).toEqual([
+        "caido_compare_replay_results",
+        "caido_draft_finding",
+        "caido_plan_authorization_test",
+        "caido_triage_http_history",
+      ]);
       const result = await client.getPrompt({
         name: "caido_triage_http_history",
         arguments: { objective: "Find recent failed logins" },

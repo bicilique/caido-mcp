@@ -31,9 +31,12 @@ const SENSITIVE_FIELDS = new Set([
   "session",
   "sessionid",
 ]);
-const SENSITIVE_QUERY_VALUE = /([?&](?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token|api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|token|password|session(?:[_-]?id)?))=[^&#\s"'<>]*/gi;
-const SENSITIVE_HEADER_LINE = /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token)\s*:\s*[^\r\n]*$/gim;
-const SENSITIVE_ASSIGNMENT_VALUE = /\b(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token|api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|token|password|session(?:[_-]?id)?)\s*[=:]\s*(?:Bearer\s+)?[^\s,.;&#]+/gi;
+const SENSITIVE_QUERY_VALUE =
+  /([?&](?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token|api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|token|password|session(?:[_-]?id)?))=[^&#\s"'<>]*/gi;
+const SENSITIVE_HEADER_LINE =
+  /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token)\s*:\s*[^\r\n]*$/gim;
+const SENSITIVE_ASSIGNMENT_VALUE =
+  /\b(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token|api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|token|password|session(?:[_-]?id)?)\s*[=:]\s*(?:Bearer\s+)?[^\s,.;&#]+/gi;
 
 function canonicalName(name: string): string {
   return name.trim().toLowerCase();

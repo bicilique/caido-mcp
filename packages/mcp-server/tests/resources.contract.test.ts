@@ -24,25 +24,27 @@ describe("read-only resources", () => {
       }),
     });
     const client = new Client({ name: "contract", version: "1.0.0" });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
 
     try {
-      expect((await client.listResources()).resources.map((item) => item.uri).sort())
-        .toEqual([
-          "caido://findings",
-          "caido://project",
-          "caido://scopes",
-          "caido://sitemap",
-        ]);
+      expect(
+        (await client.listResources()).resources.map((item) => item.uri).sort(),
+      ).toEqual([
+        "caido://findings",
+        "caido://project",
+        "caido://scopes",
+        "caido://sitemap",
+      ]);
       expect(
         (await client.listResourceTemplates()).resourceTemplates
           .map((item) => item.uriTemplate)
           .sort(),
-      ).toEqual([
-        "caido://replay-sessions/{id}",
-        "caido://requests/{id}",
-      ]);
+      ).toEqual(["caido://replay-sessions/{id}", "caido://requests/{id}"]);
 
       const project = await client.readResource({ uri: "caido://project" });
       expect(project.contents).toEqual([
@@ -93,12 +95,20 @@ describe("read-only resources", () => {
       }),
     });
     const client = new Client({ name: "contract", version: "1.0.0" });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
 
     try {
-      const result = await client.readResource({ uri: "caido://requests/request-resource" });
-      expect(JSON.stringify(result.contents)).not.toContain("resource-token-secret");
+      const result = await client.readResource({
+        uri: "caido://requests/request-resource",
+      });
+      expect(JSON.stringify(result.contents)).not.toContain(
+        "resource-token-secret",
+      );
     } finally {
       await client.close();
       await server.close();

@@ -1,21 +1,62 @@
-import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import {
+  chmod,
+  cp,
+  mkdir,
+  mkdtemp,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
-import { spawn } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "../..");
 const script = resolve(root, "scripts/verify-macos-intel.sh");
+const dependencyVerifier = resolve(
+  root,
+  "scripts/verify-installed-packages.mjs",
+);
+const mcpVerifier = resolve(
+  root,
+  "skills/caido-operator/scripts/verify-mcp.mjs",
+);
 
 async function executable(path: string, source: string): Promise<void> {
   await writeFile(path, source, "utf8");
   await chmod(path, 0o755);
 }
 
+async function runProcess(
+  command: string,
+  args: string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  const child = spawn(command, args, {
+    cwd: options.cwd ?? root,
+    env: options.env ?? process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+  const code = await new Promise<number | null>((resolveExit) => {
+    child.once("close", resolveExit);
+  });
+  return { code, stdout, stderr };
+}
+
 async function runVerification(
   architecture: "arm64" | "x86_64",
   nodeArchitecture: "arm64" | "x64",
+  options: { root?: string; store?: string; sentinel?: string } = {},
 ): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const directory = await mkdtemp(join(tmpdir(), "caido intel contract "));
   const realNode = process.execPath;
@@ -33,27 +74,42 @@ fi
 exec '${realNode}' "$@"
 `,
   );
+  await executable(
+    join(directory, "sw_vers"),
+    "#!/bin/sh\nprintf '%s\\n' 'ProductName: macOS'\n",
+  );
 
-  const child = spawn("bash", [script], {
+  return runProcess("bash", [script], {
     cwd: root,
     env: {
       ...process.env,
       PATH: `${directory}${delimiter}${process.env.PATH ?? ""}`,
+      ...(options.root === undefined
+        ? {}
+        : { CAIDO_VERIFY_ROOT: options.root }),
+      ...(options.store === undefined
+        ? {}
+        : { CAIDO_VERIFY_PNPM_STORE: options.store }),
+      ...(options.sentinel === undefined
+        ? {}
+        : { CAIDO_VERIFY_SENTINEL: options.sentinel }),
     },
-    stdio: ["ignore", "pipe", "pipe"],
   });
-  let stdout = "";
-  let stderr = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-    stdout += chunk;
-  });
-  child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
-    stderr += chunk;
-  });
-  const code = await new Promise<number | null>((resolveExit) => {
-    child.once("close", resolveExit);
-  });
-  return { code, stdout, stderr };
+}
+
+async function packageFixture(
+  store: string,
+  storeEntry: string,
+  packagePath: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const directory = join(store, storeEntry, "node_modules", packagePath);
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, "package.json"),
+    JSON.stringify(metadata),
+    "utf8",
+  );
 }
 
 describe("macOS Intel verifier", () => {
@@ -73,13 +129,167 @@ describe("macOS Intel verifier", () => {
     expect(result.stdout).not.toMatch(/verified|terverifikasi/i);
   });
 
-  it("verifies the built stdio server through an absolute path containing spaces", async () => {
-    const result = await runVerification("x86_64", "x64");
+  it("verifies package count, stdio purity, credentials, permissions, and spaced paths", async () => {
+    const sentinel = ["pat", "must", "not", "leak"].join("-");
+    const result = await runVerification("x86_64", "x64", { sentinel });
 
     expect(result.code).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toMatch(/macOS Intel verification passed/i);
     expect(result.stdout).toMatch(/absolute path containing spaces/i);
     expect(result.stdout).toMatch(/stdout contains JSON-RPC frames only/i);
+    expect(result.stdout).toMatch(/installed package manifests: [1-9]\d*/i);
+    expect(result.stdout).toMatch(/credential paths and permissions/i);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(sentinel);
+  }, 15_000);
+
+  it("builds a fresh isolated checkout before Intel verification", async () => {
+    const isolated = await mkdtemp(
+      join(tmpdir(), "caido fresh checkout with spaces "),
+    );
+    await mkdir(join(isolated, "packages"), { recursive: true });
+    await mkdir(join(isolated, "scripts"), { recursive: true });
+    await mkdir(join(isolated, "skills/caido-operator/scripts"), {
+      recursive: true,
+    });
+    for (const path of [
+      "package.json",
+      "pnpm-workspace.yaml",
+      "tsconfig.json",
+      "tsconfig.base.json",
+    ]) {
+      await cp(resolve(root, path), join(isolated, path));
+    }
+    for (const packageName of ["core", "mcp-server"]) {
+      await cp(
+        resolve(root, "packages", packageName),
+        join(isolated, "packages", packageName),
+        {
+          recursive: true,
+          filter: (source) => !source.split("/").includes("dist"),
+        },
+      );
+    }
+    for (const path of [
+      "verify-installed-packages.mjs",
+      "verify-macos-intel.sh",
+    ]) {
+      await cp(resolve(root, "scripts", path), join(isolated, "scripts", path));
+    }
+    for (const path of ["verify-mcp.mjs", "verify-skill.mjs", "doctor.sh"]) {
+      await cp(
+        resolve(root, "skills/caido-operator/scripts", path),
+        join(isolated, "skills/caido-operator/scripts", path),
+      );
+      await chmod(join(isolated, "skills/caido-operator/scripts", path), 0o755);
+    }
+    await symlink(
+      resolve(root, "node_modules"),
+      join(isolated, "node_modules"),
+    );
+
+    await expect(
+      stat(join(isolated, "packages/mcp-server/dist/cli.js")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    const build = await runProcess("corepack", ["pnpm", "build"], {
+      cwd: isolated,
+    });
+    expect(build.code, build.stderr).toBe(0);
+    await expect(
+      stat(join(isolated, "packages/mcp-server/dist/cli.js")),
+    ).resolves.toBeDefined();
+
+    const result = await runVerification("x86_64", "x64", {
+      root: isolated,
+    });
+    expect(result.code, result.stderr).toBe(0);
+  }, 30_000);
+});
+
+describe("installed package verifier", () => {
+  it("fails when no package manifest was scanned", async () => {
+    const store = await mkdtemp(join(tmpdir(), "caido empty pnpm store "));
+    const result = await runProcess(process.execPath, [
+      dependencyVerifier,
+      store,
+    ]);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toMatch(/zero package manifests/i);
   });
+
+  it("accepts x64-capable scoped and unscoped packages", async () => {
+    const store = await mkdtemp(join(tmpdir(), "caido x64 pnpm store "));
+    await packageFixture(store, "plain@1.0.0", "plain", {
+      name: "plain",
+      version: "1.0.0",
+      cpu: ["x64", "arm64"],
+      os: ["darwin"],
+    });
+    await packageFixture(store, "@scope+pkg@2.0.0", "@scope/pkg", {
+      name: "@scope/pkg",
+      version: "2.0.0",
+      binary: { package_name: "pkg-darwin-x64" },
+    });
+    const result = await runProcess(process.execPath, [
+      dependencyVerifier,
+      store,
+    ]);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toMatch(/2 installed package manifests/i);
+  });
+
+  it("rejects arm64-only metadata without echoing manifest secrets", async () => {
+    const store = await mkdtemp(join(tmpdir(), "caido arm64 pnpm store "));
+    const sentinel = ["manifest", "secret", "must", "not", "leak"].join("-");
+    await packageFixture(store, "unsafe@1.0.0", "unsafe", {
+      name: "unsafe",
+      version: "1.0.0",
+      cpu: ["arm64"],
+      binary: { target: "darwin-arm64", credential: sentinel },
+    });
+    const result = await runProcess(process.execPath, [
+      dependencyVerifier,
+      store,
+    ]);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toMatch(/arm64-only/i);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(sentinel);
+  });
+});
+
+describe("MCP stdio verifier", () => {
+  it("rejects diagnostic JSON and terminates the child before a hard deadline", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "caido fake mcp "));
+    const fakeServer = join(directory, "fake server with spaces.mjs");
+    await writeFile(
+      fakeServer,
+      `process.stdin.once("data", () => {
+  const frames = [
+    { jsonrpc: "2.0", id: 1, result: { serverInfo: { name: "fake" } } },
+    { jsonrpc: "2.0", id: 2, result: { tools: [] } },
+    { jsonrpc: "2.0", id: 3, result: { resources: [] } },
+    { jsonrpc: "2.0", id: 4, result: { prompts: [] } },
+    { jsonrpc: "2.0", id: 5, result: { content: [], structuredContent: {} } },
+    { level: "info", message: "diagnostic" }
+  ];
+  process.stdout.write(frames.map(JSON.stringify).join("\\n") + "\\n");
+});
+setInterval(() => {}, 1000);
+`,
+      "utf8",
+    );
+    const startedAt = Date.now();
+    const result = await runProcess(process.execPath, [
+      mcpVerifier,
+      fakeServer,
+    ]);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toMatch(/diagnostic JSON|non-JSON-RPC/i);
+    expect(Date.now() - startedAt).toBeLessThan(4_000);
+  }, 5_000);
 });

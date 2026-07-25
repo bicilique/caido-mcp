@@ -1,6 +1,4 @@
-export function serializeStructuredResult(
-  result: Record<string, unknown>,
-): {
+export function serializeStructuredResult(result: Record<string, unknown>): {
   content: [{ type: "text"; text: string }];
   structuredContent: Record<string, unknown>;
 } {

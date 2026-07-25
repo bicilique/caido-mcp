@@ -1,4 +1,8 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { WebSocketServer } from "ws";
 
 export interface MockCaidoOptions {
@@ -70,7 +74,8 @@ function requestNode(
     host: "127.0.0.1",
     port: 18080,
     method: id === "request-text" ? "GET" : "POST",
-    path: id === "request-text" ? "/account?token=integration-secret" : "/upload",
+    path:
+      id === "request-text" ? "/account?token=integration-secret" : "/upload",
     query: id === "request-text" ? "token=integration-secret" : "",
     isTls: false,
     metadata: { id: `metadata-${id}`, color: null },
@@ -110,7 +115,9 @@ function sendJson(
   response.end(JSON.stringify(value));
 }
 
-async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJson(
+  request: IncomingMessage,
+): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -207,7 +214,9 @@ export async function createMockCaidoServer(
     }
 
     if (operationName === "Projects") {
-      sendJson(response, 200, { data: { projects: [project("project-1"), project("project-2")] } });
+      sendJson(response, 200, {
+        data: { projects: [project("project-1"), project("project-2")] },
+      });
       return;
     }
     if (operationName === "SelectProject") {
@@ -269,7 +278,8 @@ export async function createMockCaidoServer(
         requestNode("request-text", false),
         requestNode("request-binary", false),
       ];
-      const after = typeof variables.after === "string" ? variables.after : undefined;
+      const after =
+        typeof variables.after === "string" ? variables.after : undefined;
       const start = after === undefined ? 0 : 1;
       const limit = typeof variables.first === "number" ? variables.first : 20;
       const nodes = all.slice(start, start + limit);
@@ -283,8 +293,7 @@ export async function createMockCaidoServer(
             pageInfo: {
               hasNextPage: start + nodes.length < all.length,
               hasPreviousPage: start > 0,
-              startCursor:
-                nodes.length === 0 ? null : `cursor-${nodes[0]!.id}`,
+              startCursor: nodes.length === 0 ? null : `cursor-${nodes[0]!.id}`,
               endCursor:
                 nodes.length === 0
                   ? null
@@ -475,7 +484,9 @@ export async function createMockCaidoServer(
       closing ??= new Promise<void>((resolve, reject) => {
         for (const client of webSockets.clients) client.terminate();
         webSockets.close();
-        server.close((error) => (error === undefined ? resolve() : reject(error)));
+        server.close((error) =>
+          error === undefined ? resolve() : reject(error),
+        );
         server.closeAllConnections();
       });
       return closing;

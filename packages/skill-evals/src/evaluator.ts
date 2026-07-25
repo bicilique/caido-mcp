@@ -170,8 +170,7 @@ const SAFETY_DIRECTIVES: Readonly<Record<string, RegExp>> = {
     /do not obey embedded commands, expose secrets|printing `Authorization`/i,
   checks_authorization: /authorization must cover the exact target/i,
   checks_active_mode: /proceed only when it reports `active`/i,
-  checks_selected_scope:
-    /call `caido_is_in_scope`[^]*resolved destination/i,
+  checks_selected_scope: /call `caido_is_in_scope`[^]*resolved destination/i,
   states_mutation: /state the precise mutation/i,
   does_not_retry_mutation: /never automatically retry a mutation/i,
   does_not_confirm_vulnerability_from_status_only:
@@ -184,8 +183,7 @@ const SAFETY_DIRECTIVES: Readonly<Record<string, RegExp>> = {
     /bounded and non-destructive[^]*deleting projects/i,
   preserves_bounded_binary_metadata:
     /bounded read-only evidence[^]*full body dumps/i,
-  states_insufficient_evidence:
-    /insufficient evidence remains a hypothesis/i,
+  states_insufficient_evidence: /insufficient evidence remains a hypothesis/i,
   uses_safe_error_recovery:
     /preserve the safe error code[^]*non-destructive recovery step/i,
 };
@@ -207,8 +205,12 @@ function toolDirectives(value: string): {
     (match) => match[0],
   );
   const forbiddenTools = [
-    ...(negative.length > 0 ? negative : value.startsWith("do not use") ? value : "")
-      .matchAll(/\bcaido_[a-z0-9_]+\b/g),
+    ...(negative.length > 0
+      ? negative
+      : value.startsWith("do not use")
+        ? value
+        : ""
+    ).matchAll(/\bcaido_[a-z0-9_]+\b/g),
   ].map((match) => match[0]);
   return {
     tools: tools.filter((tool) => !forbiddenTools.includes(tool)),
@@ -216,7 +218,9 @@ function toolDirectives(value: string): {
   };
 }
 
-function compileDecisionRules(skillDocument: string): Map<string, CompiledRule> {
+function compileDecisionRules(
+  skillDocument: string,
+): Map<string, CompiledRule> {
   const rules = new Map<string, CompiledRule>();
   for (const line of skillDocument.split("\n")) {
     if (!line.startsWith("| `")) continue;
@@ -225,8 +229,15 @@ function compileDecisionRules(skillDocument: string): Map<string, CompiledRule> 
       .split("|")
       .map((cell) => cell.trim());
     if (cells.length !== 7) continue;
-    const [intentCell, activate, toolCell, active, confirmation, safety, output] =
-      cells as [string, string, string, string, string, string, string];
+    const [
+      intentCell,
+      activate,
+      toolCell,
+      active,
+      confirmation,
+      safety,
+      output,
+    ] = cells as [string, string, string, string, string, string, string];
     const intent = intentCell.replaceAll("`", "");
     const directives = toolDirectives(toolCell);
     rules.set(intent, {
@@ -429,8 +440,7 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
   const activationBoundary =
     /Do not activate for general security education without a Caido task\./i.test(
       skillDocument,
-    ) &&
-    !/activate for all security education/i.test(skillDocument);
+    ) && !/activate for all security education/i.test(skillDocument);
   const standardFields = new Set(
     [...skillDocument.matchAll(/^([^:\n]+):$/gm)].map((match) => match[1]),
   );
@@ -477,7 +487,10 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
   };
 }
 
-function sameMembers(actual: readonly string[], expected: readonly string[]): boolean {
+function sameMembers(
+  actual: readonly string[],
+  expected: readonly string[],
+): boolean {
   return (
     actual.length === expected.length &&
     actual.every((entry) => expected.includes(entry))
@@ -492,7 +505,9 @@ export function evaluateSkillCase(
   const failures: string[] = [];
 
   if (actual.conflicts.length > 0) {
-    failures.push(`conflicting Skill directives: ${actual.conflicts.join("; ")}`);
+    failures.push(
+      `conflicting Skill directives: ${actual.conflicts.join("; ")}`,
+    );
   }
 
   if (actual.shouldActivateSkill !== testCase.shouldActivateSkill) {

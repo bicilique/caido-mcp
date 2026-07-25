@@ -51,8 +51,12 @@ async function clientFor(adapter = createTestAdapter(), bodyLimit = 4096) {
     }),
   });
   const client = new Client({ name: "contract", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
   closers.push(async () => {
     await client.close();
     await server.close();
@@ -93,7 +97,10 @@ describe("read-only tool catalog", () => {
       }),
     );
 
-    const result = await client.callTool({ name: "caido_health", arguments: {} });
+    const result = await client.callTool({
+      name: "caido_health",
+      arguments: {},
+    });
     expect(result.structuredContent).toMatchObject({
       ok: true,
       data: {
@@ -138,9 +145,11 @@ describe("read-only tool catalog", () => {
       arguments: { limit: 1 },
     });
     const serialized = JSON.stringify(result.structuredContent);
-    const item = (result.structuredContent as {
-      data: { items: Array<Record<string, unknown>> };
-    }).data.items[0];
+    const item = (
+      result.structuredContent as {
+        data: { items: Array<Record<string, unknown>> };
+      }
+    ).data.items[0];
 
     expect(serialized).not.toMatch(
       /query-secret|header-secret|unbounded-body-secret|Authorization/,
@@ -214,7 +223,9 @@ describe("read-only tool catalog", () => {
             request: {
               headers: [],
               contentType: "text/plain",
-              body: new TextEncoder().encode("Authorization: Bearer text-secret"),
+              body: new TextEncoder().encode(
+                "Authorization: Bearer text-secret",
+              ),
             },
           },
         ],
@@ -226,7 +237,9 @@ describe("read-only tool catalog", () => {
       arguments: { requestIds: ["request-2"] },
     });
 
-    expect(JSON.stringify(result.structuredContent)).not.toContain("text-secret");
+    expect(JSON.stringify(result.structuredContent)).not.toContain(
+      "text-secret",
+    );
   });
 
   it("redacts literal token fields from JSON request evidence", async () => {
@@ -246,7 +259,9 @@ describe("read-only tool catalog", () => {
             request: {
               headers: [],
               contentType: "application/json",
-              body: new TextEncoder().encode('{"token":"literal-token-secret"}'),
+              body: new TextEncoder().encode(
+                '{"token":"literal-token-secret"}',
+              ),
             },
           },
         ],
@@ -258,7 +273,9 @@ describe("read-only tool catalog", () => {
       arguments: { requestIds: ["request-token"] },
     });
 
-    expect(JSON.stringify(result.structuredContent)).not.toContain("literal-token-secret");
+    expect(JSON.stringify(result.structuredContent)).not.toContain(
+      "literal-token-secret",
+    );
   });
 
   it("redacts valid JSON before applying the body evidence limit", async () => {
@@ -293,9 +310,15 @@ describe("read-only tool catalog", () => {
       arguments: { requestIds: ["request-truncated-json"] },
     });
 
-    const body = (result.structuredContent as {
-      data: Array<{ request: { body: { limit: number; text: string; truncated: boolean } } }>;
-    }).data[0]?.request.body;
+    const body = (
+      result.structuredContent as {
+        data: Array<{
+          request: {
+            body: { limit: number; text: string; truncated: boolean };
+          };
+        }>;
+      }
+    ).data[0]?.request.body;
     expect(body).toMatchObject({ limit: 24, truncated: true });
     expect(body?.text).not.toContain("truncated-json-secret");
     expect(body?.text).not.toContain("truncated-json");
@@ -320,6 +343,8 @@ describe("read-only tool catalog", () => {
       arguments: { id: "finding-1" },
     });
 
-    expect(JSON.stringify(result.structuredContent)).not.toContain("finding-token-secret");
+    expect(JSON.stringify(result.structuredContent)).not.toContain(
+      "finding-token-secret",
+    );
   });
 });

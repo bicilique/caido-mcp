@@ -194,6 +194,9 @@ describe("release documentation", () => {
     expect(workflow).toMatch(/actions\/checkout@v\d+/);
     expect(workflow).toMatch(/actions\/setup-node@v\d+/);
     expect(workflow).not.toMatch(/uses:\s*(?!actions\/)[^ \n]+/);
+    expect(workflow.indexOf("pnpm build")).toBeLessThan(
+      workflow.indexOf("pnpm test:contract"),
+    );
     for (const command of [
       "format:check",
       "lint",
@@ -213,5 +216,25 @@ describe("release documentation", () => {
     ]) {
       expect(workflow, command).toContain(`pnpm ${command}`);
     }
+  });
+
+  it("formats production, tests, configuration, and documentation repository-wide", async () => {
+    const [manifestText, ignored] = await Promise.all([
+      document("package.json"),
+      document(".prettierignore"),
+    ]);
+    const manifest = JSON.parse(manifestText) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(manifest.scripts.format).toBe("prettier --write .");
+    expect(manifest.scripts["format:check"]).toBe("prettier --check .");
+    expect(ignored).toMatch(/node_modules/);
+    expect(ignored).toMatch(/dist/);
+    expect(ignored).toMatch(/coverage/);
+    expect(ignored).toMatch(/pnpm-lock\.yaml/);
+    expect(ignored).not.toMatch(/^packages\/?$/m);
+    expect(ignored).not.toMatch(/^tests\/?$/m);
+    expect(ignored).not.toMatch(/^docs\/?$/m);
   });
 });

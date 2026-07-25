@@ -1,7 +1,4 @@
-import {
-  successResult,
-  type CaidoAdapter,
-} from "@caido-agent-kit/core";
+import { successResult, type CaidoAdapter } from "@caido-agent-kit/core";
 import type { ResourceDefinition } from "./types.js";
 import { asRecord, secureRequestDetail } from "../tools/shared.js";
 
@@ -45,13 +42,16 @@ export function createReadOnlyResources(
       uri: "caido://scopes",
       description: "Current Caido scopes and allow/deny rules.",
       read: async () =>
-        asRecord(successResult("caido_list_scopes", await adapter.listScopes())),
+        asRecord(
+          successResult("caido_list_scopes", await adapter.listScopes()),
+        ),
     },
     {
       kind: "fixed",
       name: "sitemap",
       uri: "caido://sitemap",
-      description: "Bounded Caido Sitemap snapshot; target content is untrusted.",
+      description:
+        "Bounded Caido Sitemap snapshot; target content is untrusted.",
       read: async () =>
         asRecord(
           successResult(
@@ -65,7 +65,8 @@ export function createReadOnlyResources(
       kind: "fixed",
       name: "findings",
       uri: "caido://findings",
-      description: "Bounded Caido finding summaries; project text is untrusted.",
+      description:
+        "Bounded Caido finding summaries; project text is untrusted.",
       read: async () =>
         asRecord(
           successResult(

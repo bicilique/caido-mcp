@@ -183,7 +183,9 @@ function unavailable(capability: string): AgentError {
 }
 
 function findingDescription(description: string, evidence: string): string {
-  return evidence === "" ? description : `${description}\n\nEvidence:\n${evidence}`;
+  return evidence === ""
+    ? description
+    : `${description}\n\nEvidence:\n${evidence}`;
 }
 
 function validateInputHeaders(headers: RawMessage["headers"]): void {
@@ -208,8 +210,7 @@ function boundaryError(
 ): AgentError {
   if (error instanceof AgentError) return error;
   const record =
-    typeof error === "object" &&
-    error !== null
+    typeof error === "object" && error !== null
       ? (error as Record<string, unknown>)
       : undefined;
   const typeName =
@@ -229,8 +230,7 @@ function boundaryError(
           ? response.status
           : undefined;
   const code = typeof record?.code === "string" ? record.code : undefined;
-  const reason =
-    typeof record?.reason === "string" ? record.reason : undefined;
+  const reason = typeof record?.reason === "string" ? record.reason : undefined;
   const isNotFound =
     error instanceof NotFoundUserError ||
     constructorName === "NotFoundUserError" ||
@@ -605,10 +605,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
         request.method,
         path,
         [
-          [
-            "Host",
-            hostAuthority(request.host, request.port, request.scheme),
-          ],
+          ["Host", hostAuthority(request.host, request.port, request.scheme)],
           ...raw.headers,
         ],
         raw.body,
@@ -710,16 +707,10 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     });
   }
 
-  async createFinding(
-    input: CreateFindingInput,
-  ): Promise<MutationEvidence> {
+  async createFinding(input: CreateFindingInput): Promise<MutationEvidence> {
     this.#ready();
     return sdkBoundary("mutation", async () => {
-      if (
-        typeof input !== "object" ||
-        input === null ||
-        Array.isArray(input)
-      ) {
+      if (typeof input !== "object" || input === null || Array.isArray(input)) {
         throw new AgentError(
           "INVALID_INPUT",
           "Finding creation input must be a non-null object.",
@@ -763,10 +754,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     this.#ready();
     return sdkBoundary("mutation", async () => {
       const providedFields: object = input;
-      if (
-        "severity" in providedFields ||
-        "requestIds" in providedFields
-      ) {
+      if ("severity" in providedFields || "requestIds" in providedFields) {
         throw unavailable("Finding severity or request association updates");
       }
       const current = await this.#client.finding.get(id);
@@ -800,10 +788,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     throw unavailable("Intercept control");
   }
 
-  async runWorkflow(
-    id: string,
-    requestId: string,
-  ): Promise<MutationEvidence> {
+  async runWorkflow(id: string, requestId: string): Promise<MutationEvidence> {
     this.#ready();
     return sdkBoundary("mutation", async () => {
       await this.#client.workflow.run({

@@ -44,7 +44,9 @@ function parseInteger(
   }
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
-    throw new Error(`Invalid ${name}: expected an integer from 1 to ${maximum}`);
+    throw new Error(
+      `Invalid ${name}: expected an integer from 1 to ${maximum}`,
+    );
   }
   return parsed;
 }

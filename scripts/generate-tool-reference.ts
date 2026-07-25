@@ -29,8 +29,13 @@ export function toolOutputJsonSchema(schema: z.ZodType): JsonSchemaObject {
   ) {
     throw new Error("Tool output schema is not a complete result envelope.");
   }
-  const { $schema, $defs, properties, required: baseRequired = [], ...base } =
-    generated;
+  const {
+    $schema,
+    $defs,
+    properties,
+    required: baseRequired = [],
+    ...base
+  } = generated;
   const successProperties = structuredClone(properties);
   successProperties.ok = { type: "boolean", const: true };
   delete successProperties.error;
@@ -158,9 +163,7 @@ export function assertDocumentedRegistry(
   }
 }
 
-export function renderToolReference(
-  tools: readonly ToolDefinition[],
-): string {
+export function renderToolReference(tools: readonly ToolDefinition[]): string {
   if (tools.length === 0) {
     throw new Error("Cannot render an empty tool registry.");
   }

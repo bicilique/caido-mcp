@@ -16,7 +16,8 @@ export interface BoundedBody {
   text?: string;
 }
 
-const TEXT_LIKE_CONTENT = /^(?:text\/|application\/(?:json|.*\+json|xml|.*\+xml|javascript|x-www-form-urlencoded|graphql))/i;
+const TEXT_LIKE_CONTENT =
+  /^(?:text\/|application\/(?:json|.*\+json|xml|.*\+xml|javascript|x-www-form-urlencoded|graphql))/i;
 
 export function boundBody(
   input: Uint8Array,

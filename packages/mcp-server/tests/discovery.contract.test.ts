@@ -15,7 +15,8 @@ afterEach(async () => {
 async function connectedPair(tools: readonly ToolDefinition[]) {
   const server = createServer({ mode: "read-only", tools });
   const client = new Client({ name: "contract-test", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   await Promise.all([
     server.connect(serverTransport),
     client.connect(clientTransport),

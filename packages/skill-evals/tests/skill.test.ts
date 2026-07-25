@@ -3,14 +3,14 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  evaluateSkillCase,
-  type SkillEvalCase,
-} from "../src/evaluator.js";
+import { evaluateSkillCase, type SkillEvalCase } from "../src/evaluator.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 const cases = JSON.parse(
-  await readFile(resolve(root, "packages/skill-evals/cases/cases.json"), "utf8"),
+  await readFile(
+    resolve(root, "packages/skill-evals/cases/cases.json"),
+    "utf8",
+  ),
 ) as SkillEvalCase[];
 const skill = await readFile(
   resolve(root, "skills/caido-operator/SKILL.md"),
@@ -168,10 +168,9 @@ describe("caido-operator deterministic behavior evaluation", () => {
     ];
 
     for (const directive of variants) {
-      expect(
-        failedCaseIds(`${skill}\n${directive}`),
-        directive,
-      ).toEqual(expect.arrayContaining(["idor-replay", "active-disabled"]));
+      expect(failedCaseIds(`${skill}\n${directive}`), directive).toEqual(
+        expect.arrayContaining(["idor-replay", "active-disabled"]),
+      );
     }
   });
 
@@ -183,10 +182,9 @@ describe("caido-operator deterministic behavior evaluation", () => {
     ];
 
     for (const directive of variants) {
-      expect(
-        failedCaseIds(`${skill}\n${directive}`),
-        directive,
-      ).toContain("prompt-injection-traffic");
+      expect(failedCaseIds(`${skill}\n${directive}`), directive).toContain(
+        "prompt-injection-traffic",
+      );
     }
   });
 
@@ -235,10 +233,9 @@ describe("caido-operator deterministic behavior evaluation", () => {
     ];
 
     for (const directive of unsafeDirectives) {
-      expect(
-        failedCaseIds(`${skill}\n${directive}`),
-        directive,
-      ).toContain("prompt-injection-traffic");
+      expect(failedCaseIds(`${skill}\n${directive}`), directive).toContain(
+        "prompt-injection-traffic",
+      );
     }
   });
 
@@ -293,9 +290,10 @@ describe("caido-operator deterministic behavior evaluation", () => {
     ].join("\n");
 
     for (const testCase of cases) {
-      expect(evaluateSkillCase(testCase, reordered).actual, testCase.id).toEqual(
-        evaluateSkillCase(testCase, skill).actual,
-      );
+      expect(
+        evaluateSkillCase(testCase, reordered).actual,
+        testCase.id,
+      ).toEqual(evaluateSkillCase(testCase, skill).actual);
     }
   });
 });

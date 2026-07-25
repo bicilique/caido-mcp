@@ -18,7 +18,9 @@ const CachedTokenSchema = z.strictObject({
   expiresAt: z.iso.datetime().optional(),
 });
 
-async function existingFile(path: string): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
+async function existingFile(
+  path: string,
+): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
   try {
     return await lstat(path);
   } catch (error) {

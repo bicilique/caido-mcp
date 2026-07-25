@@ -172,7 +172,9 @@ async function connectWithinDeadline(
   const closeLateConnection = async (): Promise<void> => {
     if (!owned) await closeClient();
   };
-  void pending.then(closeLateConnection, () => undefined).catch(() => undefined);
+  void pending
+    .then(closeLateConnection, () => undefined)
+    .catch(() => undefined);
   let rejectAborted: ((error: AgentError) => void) | undefined;
   const aborted = new Promise<never>((_, reject) => {
     rejectAborted = reject;
@@ -339,7 +341,9 @@ export async function createRuntime(
     tokenCache.revoke();
     connectionError = initializationError(error);
     initializationState.initializationError = connectionError;
-    io.stderr.write(`Caido connection diagnostic: ${connectionError.message}\n`);
+    io.stderr.write(
+      `Caido connection diagnostic: ${connectionError.message}\n`,
+    );
   }
 
   if (!startup.signal.aborted) {

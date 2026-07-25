@@ -156,12 +156,7 @@ function rawMessage(raw: Uint8Array | undefined): RawMessage {
     const colon = line.indexOf(":");
     return colon === -1
       ? []
-      : [
-          [
-            line.slice(0, colon).trim(),
-            line.slice(colon + 1).trim(),
-          ] as const,
-        ];
+      : [[line.slice(0, colon).trim(), line.slice(colon + 1).trim()] as const];
   });
   const contentType =
     headers.find(([name]) => name.toLowerCase() === "content-type")?.[1] ??
@@ -182,7 +177,8 @@ export function mapRequestSummary(value: unknown): RequestSummary {
     id: request.id,
     method: request.method,
     host: request.host,
-    path: request.query === "" ? request.path : `${request.path}?${request.query}`,
+    path:
+      request.query === "" ? request.path : `${request.path}?${request.query}`,
     scheme: request.isTls ? "https" : "http",
     port: request.port,
     ...(response === undefined ? {} : { statusCode: response.statusCode }),
@@ -298,7 +294,8 @@ export function paginate<T>(
   limit: number,
   cursor?: string,
 ): Page<T> {
-  const start = cursor === undefined ? 0 : Number(cursor.replace(/^offset:/, ""));
+  const start =
+    cursor === undefined ? 0 : Number(cursor.replace(/^offset:/, ""));
   if (!Number.isSafeInteger(start) || start < 0) {
     throw new AgentError("INVALID_INPUT", "The page cursor is invalid.", false);
   }

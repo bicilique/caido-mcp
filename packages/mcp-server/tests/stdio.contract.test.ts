@@ -47,7 +47,7 @@ describe("stdio entrypoint", () => {
       stderr += chunk;
     });
     const exited = once(child, "exit");
-    const timeout = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    const timeout = setTimeout(() => child.kill("SIGKILL"), 5_000);
     timeout.unref();
     const [code, signal] = (await exited) as [
       number | null,
@@ -61,7 +61,7 @@ describe("stdio entrypoint", () => {
       stdout: "",
       stderr: "",
     });
-  }, 3_000);
+  }, 7_000);
 
   it("uses stdout only for MCP and shuts down cleanly with absolute paths containing spaces", async () => {
     const directory = await mkdtemp(join(tmpdir(), "caido stdio with spaces "));

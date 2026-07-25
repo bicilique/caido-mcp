@@ -15,7 +15,9 @@ import { createIntegrationRuntime } from "../integration/runtime-harness.js";
 const enabled = process.env.CAIDO_E2E === "1";
 
 it("refuses any non-loopback E2E fixture target without contacting Caido", () => {
-  expect(() => assertLoopbackTarget("https://example.com")).toThrow(/loopback/i);
+  expect(() => assertLoopbackTarget("https://example.com")).toThrow(
+    /loopback/i,
+  );
 });
 
 it("refuses a non-loopback Caido URL before runtime startup", async () => {
@@ -36,10 +38,7 @@ it("attempts runtime and fixture cleanup independently", async () => {
     throw new Error("fixture close failed");
   });
   await expect(
-    closeE2eResources(
-      { close: runtimeClose },
-      { close: fixtureClose },
-    ),
+    closeE2eResources({ close: runtimeClose }, { close: fixtureClose }),
   ).rejects.toThrow("runtime close failed");
   expect(runtimeClose).toHaveBeenCalledOnce();
   expect(fixtureClose).toHaveBeenCalledOnce();
@@ -50,7 +49,11 @@ describe.skipIf(!enabled)("real Caido localhost E2E", () => {
     const caidoUrl = process.env.CAIDO_URL;
     const token = process.env.CAIDO_TOKEN;
     const projectId = process.env.CAIDO_E2E_PROJECT_ID;
-    if (caidoUrl === undefined || token === undefined || projectId === undefined) {
+    if (
+      caidoUrl === undefined ||
+      token === undefined ||
+      projectId === undefined
+    ) {
       throw new Error(
         "CAIDO_E2E=1 requires CAIDO_URL, CAIDO_TOKEN, and CAIDO_E2E_PROJECT_ID.",
       );
@@ -58,7 +61,9 @@ describe.skipIf(!enabled)("real Caido localhost E2E", () => {
 
     const directory = await mkdtemp(join(tmpdir(), "caido real e2e "));
     let fixture: Awaited<ReturnType<typeof startHttpFixture>> | undefined;
-    let harness: Awaited<ReturnType<typeof createIntegrationRuntime>> | undefined;
+    let harness:
+      | Awaited<ReturnType<typeof createIntegrationRuntime>>
+      | undefined;
     try {
       fixture = await startHttpFixture();
       harness = await createIntegrationRuntime(
@@ -193,7 +198,9 @@ describe.skipIf(!enabled)("real Caido localhost E2E", () => {
           }),
         ],
       });
-      expect(JSON.stringify(detail.structuredContent)).not.toContain("e2e-secret");
+      expect(JSON.stringify(detail.structuredContent)).not.toContain(
+        "e2e-secret",
+      );
     } finally {
       await closeE2eResources(harness, fixture);
     }
