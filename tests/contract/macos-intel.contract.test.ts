@@ -78,6 +78,17 @@ exec '${realNode}' "$@"
     join(directory, "sw_vers"),
     "#!/bin/sh\nprintf '%s\\n' 'ProductName: macOS'\n",
   );
+  if (process.platform !== "darwin") {
+    await executable(
+      join(directory, "stat"),
+      `#!/bin/sh
+if [ "$1" = "-f" ] && [ "$2" = "%Lp" ]; then
+  exec /usr/bin/stat -c '%a' "$3"
+fi
+exec /usr/bin/stat "$@"
+`,
+    );
+  }
 
   return runProcess("bash", [script], {
     cwd: root,
