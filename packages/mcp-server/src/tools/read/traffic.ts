@@ -6,6 +6,7 @@ import {
   successResult,
   type CaidoAdapter,
   type RequestDetail,
+  type RequestSummary,
 } from "@caido-agent-kit/core";
 import type { ToolDefinition } from "../../registry.js";
 import {
@@ -16,6 +17,25 @@ import {
   resultSchema,
   secureRequestDetail,
 } from "../shared.js";
+
+function secureRequestSummary(request: RequestSummary): RequestSummary {
+  return {
+    id: request.id,
+    method: request.method,
+    host: request.host,
+    path: request.path.split("?", 1)[0] ?? "",
+    scheme: request.scheme,
+    port: request.port,
+    ...(request.statusCode === undefined
+      ? {}
+      : { statusCode: request.statusCode }),
+    requestLength: request.requestLength,
+    ...(request.responseLength === undefined
+      ? {}
+      : { responseLength: request.responseLength }),
+    createdAt: request.createdAt,
+  };
+}
 
 export function trafficTools(
   adapter: CaidoAdapter,
@@ -36,19 +56,26 @@ export function trafficTools(
       }),
       outputSchema: resultSchema(objectData),
       annotations: readOnlyAnnotations,
-      handler: async (input) =>
-        asRecord(
+      handler: async (input) => {
+        const page = await adapter.listRequests(input as {
+          httpql?: string;
+          cursor?: string;
+          direction: "ascending" | "descending";
+          limit: number;
+        });
+        return asRecord(
           successResult(
             "caido_list_requests",
-            await adapter.listRequests(input as {
-              httpql?: string;
-              cursor?: string;
-              direction: "ascending" | "descending";
-              limit: number;
-            }),
+            {
+              items: page.items.map(secureRequestSummary),
+              ...(page.nextCursor === undefined
+                ? {}
+                : { nextCursor: page.nextCursor }),
+            },
             { untrusted: true, source: "caido_http_traffic" },
           ),
-        ),
+        );
+      },
     },
     {
       name: "caido_get_request",

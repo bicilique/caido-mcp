@@ -10,7 +10,7 @@
     }
   },
   "bin": {
-    "caido-agent-kit": "./dist/index.js"
+    "caido-agent-kit": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"

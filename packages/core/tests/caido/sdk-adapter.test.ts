@@ -271,33 +271,34 @@ describe("SdkCaidoAdapter", () => {
         direction: "descending",
         limit: 10,
       }),
-    ).toMatchObject({
+    ).toEqual({
       nextCursor: "next-request",
       items: [
         {
           id: "request-1",
+          method: "GET",
           host: "example.com",
-          path: "/login?next=%2F",
+          path: "/login",
           scheme: "https",
+          port: 443,
           statusCode: 200,
-          request: {
-            contentType: "text/plain",
-            body: new TextEncoder().encode("hello"),
-          },
-          response: {
-            contentType: "text/plain",
-            body: new TextEncoder().encode("world"),
-          },
+          requestLength: 0,
+          responseLength: 43,
+          createdAt: "2026-07-25T00:00:00.000Z",
         },
       ],
     });
     expect(requestBuilder.calls).toEqual([
-      ["includeRaw", { request: true, response: true }],
+      ["includeRaw", { request: false, response: false }],
       ["filter", 'req.host.eq:"example.com"'],
       ["after", "request-cursor"],
       ["descending", "req", "created_at"],
       ["first", 10],
     ]);
+    expect(JSON.stringify(await adapter.listRequests({
+      direction: "descending",
+      limit: 1,
+    }))).not.toMatch(/next=%2F|Authorization|hello|world/);
     expect(await adapter.listScopes()).toEqual([
       {
         id: "scope-1",
@@ -379,7 +380,7 @@ describe("SdkCaidoAdapter", () => {
     expect(
       await adapter.createFinding({
         title: "Reflected input",
-        severity: "medium",
+        severity: "",
         requestIds: ["request-1"],
         description: "Input is reflected.",
         evidence: "response body",
@@ -425,6 +426,51 @@ describe("SdkCaidoAdapter", () => {
       "create-replay-session",
       "send-replay:session-created",
     ]);
+  });
+
+  it.each([
+    [
+      "create severity",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.createFinding({
+          title: "Unsupported severity",
+          severity: "high",
+          requestIds: ["request-1"],
+          description: "Description",
+          evidence: "",
+        }),
+    ],
+    [
+      "create multiple request IDs",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.createFinding({
+          title: "Multiple requests",
+          severity: "",
+          requestIds: ["request-1", "request-2"],
+          description: "Description",
+          evidence: "",
+        }),
+    ],
+    [
+      "update severity",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.updateFinding("finding-1", { severity: "critical" }),
+    ],
+    [
+      "update request IDs",
+      (adapter: SdkCaidoAdapter) =>
+        adapter.updateFinding("finding-1", { requestIds: ["request-2"] }),
+    ],
+  ])("rejects unsupported non-empty finding field: %s", async (_name, call) => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(call(adapter)).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "TOOL_DISABLED",
+        retryable: false,
+      }),
+    );
+    expect(events).toEqual([]);
   });
 
   it.each([

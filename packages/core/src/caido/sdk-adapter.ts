@@ -28,6 +28,7 @@ import {
   mapProject,
   mapReplaySession,
   mapRequestDetail,
+  mapRequestListSummary,
   mapRequestSummary,
   mapScope,
   mapWorkflow,
@@ -146,6 +147,11 @@ export interface CaidoSdkClient {
 
 export interface SdkCaidoAdapterOptions {
   initializationError?: AgentError;
+  initializationState?: CaidoInitializationState;
+}
+
+export interface CaidoInitializationState {
+  initializationError?: AgentError;
 }
 
 function unavailable(capability: string): AgentError {
@@ -178,12 +184,21 @@ function serializeRequest(
 export class SdkCaidoAdapter implements CaidoAdapter {
   readonly #client: CaidoSdkClient;
   readonly #initializationError: AgentError | undefined;
+  readonly #initializationState: CaidoInitializationState | undefined;
   #selectedProject: Project | undefined;
   #closed = false;
 
   constructor(client: CaidoSdkClient, options: SdkCaidoAdapterOptions = {}) {
     this.#client = client;
     this.#initializationError = options.initializationError;
+    this.#initializationState = options.initializationState;
+  }
+
+  #connectionError(): AgentError | undefined {
+    return (
+      this.#initializationState?.initializationError ??
+      this.#initializationError
+    );
   }
 
   #ready(): void {
@@ -194,13 +209,14 @@ export class SdkCaidoAdapter implements CaidoAdapter {
         false,
       );
     }
-    if (this.#initializationError !== undefined) {
-      throw this.#initializationError;
+    const connectionError = this.#connectionError();
+    if (connectionError !== undefined) {
+      throw connectionError;
     }
   }
 
   async health(): ReturnType<CaidoAdapter["health"]> {
-    if (this.#initializationError !== undefined || this.#closed) {
+    if (this.#connectionError() !== undefined || this.#closed) {
       return { reachable: false, authenticated: false };
     }
     try {
@@ -242,7 +258,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     this.#ready();
     const builder = this.#client.request
       .list()
-      .includeRaw({ request: true, response: true });
+      .includeRaw({ request: false, response: false });
     if (input.httpql !== undefined) builder.filter(input.httpql);
     if (input.cursor !== undefined) builder.after(input.cursor);
     builder[input.direction === "ascending" ? "ascending" : "descending"](
@@ -250,7 +266,7 @@ export class SdkCaidoAdapter implements CaidoAdapter {
       "created_at",
     );
     const page = await builder.first(input.limit).execute();
-    return mapConnection(page, mapRequestDetail);
+    return mapConnection(page, mapRequestListSummary);
   }
 
   async getRequests(ids: readonly string[]) {
@@ -453,6 +469,9 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: Omit<FindingDetail, "id">,
   ): Promise<MutationEvidence> {
     this.#ready();
+    if (input.severity.trim() !== "" || input.requestIds.length > 1) {
+      throw unavailable("Finding severity or multiple request associations");
+    }
     const requestId = input.requestIds[0];
     if (requestId === undefined) {
       throw new AgentError(
@@ -477,6 +496,12 @@ export class SdkCaidoAdapter implements CaidoAdapter {
     input: Partial<Omit<FindingDetail, "id">>,
   ): Promise<MutationEvidence> {
     this.#ready();
+    if (
+      (input.severity !== undefined && input.severity.trim() !== "") ||
+      (input.requestIds !== undefined && input.requestIds.length > 0)
+    ) {
+      throw unavailable("Finding severity or request association updates");
+    }
     const current = await this.#client.finding.get(id);
     if (current === undefined) {
       throw new AgentError(

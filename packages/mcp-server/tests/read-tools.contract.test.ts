@@ -107,6 +107,58 @@ describe("read-only tool catalog", () => {
     expect(JSON.stringify(result)).not.toMatch(/token|authorization|cookie/i);
   });
 
+  it("returns list summaries without query secrets, headers, or bodies", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        listRequests: async () => ({
+          items: [
+            {
+              id: "request-summary",
+              method: "GET",
+              host: "example.test",
+              path: "/login?token=query-secret",
+              scheme: "https",
+              port: 443,
+              requestLength: 100_000,
+              responseLength: 200_000,
+              statusCode: 200,
+              createdAt: "2026-07-25T00:00:00.000Z",
+              request: {
+                headers: [["Authorization", "Bearer header-secret"]],
+                body: new TextEncoder().encode("unbounded-body-secret"),
+              },
+            } as never,
+          ],
+        }),
+      }),
+    );
+
+    const result = await client.callTool({
+      name: "caido_list_requests",
+      arguments: { limit: 1 },
+    });
+    const serialized = JSON.stringify(result.structuredContent);
+    const item = (result.structuredContent as {
+      data: { items: Array<Record<string, unknown>> };
+    }).data.items[0];
+
+    expect(serialized).not.toMatch(
+      /query-secret|header-secret|unbounded-body-secret|Authorization/,
+    );
+    expect(item).toEqual({
+      id: "request-summary",
+      method: "GET",
+      host: "example.test",
+      path: "/login",
+      scheme: "https",
+      port: 443,
+      requestLength: 100_000,
+      responseLength: 200_000,
+      statusCode: 200,
+      createdAt: "2026-07-25T00:00:00.000Z",
+    });
+  });
+
   it("redacts JSON credentials and query credentials in request evidence", async () => {
     const client = await clientFor(
       createTestAdapter({

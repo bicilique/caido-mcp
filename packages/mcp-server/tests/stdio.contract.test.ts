@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -17,12 +18,57 @@ afterEach(async () => {
 });
 
 describe("stdio entrypoint", () => {
+  it("imports the package root without starting stdio", async () => {
+    const entrypoint = resolve("packages/mcp-server/dist/index.js");
+    const child = spawn(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `await import(${JSON.stringify(pathToFileURL(entrypoint).href)})`,
+      ],
+      {
+        env: {
+          ...process.env,
+          CAIDO_URL: "http://127.0.0.1:1",
+          CAIDO_PAT: "caido_test",
+          CAIDO_REQUEST_TIMEOUT_MS: "10",
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    child.stdin.end();
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => {
+      stderr += chunk;
+    });
+    const exited = once(child, "exit");
+    const timeout = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    timeout.unref();
+    const [code, signal] = (await exited) as [
+      number | null,
+      NodeJS.Signals | null,
+    ];
+    clearTimeout(timeout);
+
+    expect({ code, signal, stdout, stderr }).toEqual({
+      code: 0,
+      signal: null,
+      stdout: "",
+      stderr: "",
+    });
+  }, 3_000);
+
   it("uses stdout only for MCP and shuts down cleanly with absolute paths containing spaces", async () => {
     const directory = await mkdtemp(join(tmpdir(), "caido stdio with spaces "));
     directories.push(directory);
     const auditPath = join(directory, "audit log.jsonl");
     const tokenPath = join(directory, "token cache.json");
-    const entrypoint = resolve("packages/mcp-server/dist/index.js");
+    const entrypoint = resolve("packages/mcp-server/dist/cli.js");
     expect(isAbsolute(entrypoint)).toBe(true);
 
     const child = spawn(process.execPath, [entrypoint], {

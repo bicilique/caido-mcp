@@ -12,6 +12,7 @@ import {
   createCaidoClient,
   parseConfig,
   type CaidoAdapter,
+  type CaidoInitializationState,
   type CaidoSdkClient,
   type ConnectableCaidoClient,
 } from "@caido-agent-kit/core";
@@ -21,6 +22,7 @@ import { promptDefinitions } from "./prompts/index.js";
 import { createReadOnlyResources } from "./resources/index.js";
 import { createServer } from "./server.js";
 import { createReadOnlyTools } from "./tools/read/index.js";
+import type { ToolDefinition } from "./registry.js";
 
 export interface SignalSource {
   on(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
@@ -37,30 +39,82 @@ export interface RuntimeIO {
 
 type RuntimeClient = CaidoSdkClient & ConnectableCaidoClient;
 
+interface RuntimeTokenCache {
+  load(): ReturnType<SecureTokenCache["load"]>;
+  save(
+    token: Parameters<SecureTokenCache["save"]>[0],
+  ): ReturnType<SecureTokenCache["save"]>;
+  clear(): ReturnType<SecureTokenCache["clear"]>;
+}
+
+class OwnedTokenCache implements RuntimeTokenCache {
+  readonly #delegate: SecureTokenCache;
+  #owned = true;
+
+  constructor(delegate: SecureTokenCache) {
+    this.#delegate = delegate;
+  }
+
+  revoke(): void {
+    this.#owned = false;
+  }
+
+  async load(): ReturnType<SecureTokenCache["load"]> {
+    return this.#owned ? this.#delegate.load() : undefined;
+  }
+
+  async save(
+    token: Parameters<SecureTokenCache["save"]>[0],
+  ): ReturnType<SecureTokenCache["save"]> {
+    if (this.#owned) await this.#delegate.save(token);
+  }
+
+  async clear(): ReturnType<SecureTokenCache["clear"]> {
+    if (this.#owned) await this.#delegate.clear();
+  }
+}
+
 export interface RuntimeDependencies {
   createClient(
     config: ReturnType<typeof parseConfig>,
     env: NodeJS.ProcessEnv,
-    cache: SecureTokenCache,
+    cache: RuntimeTokenCache,
     onRequest: (request: unknown) => void,
   ): RuntimeClient;
   connectClient(client: RuntimeClient): Promise<unknown>;
   createAdapter(
     client: CaidoSdkClient,
-    initializationError?: AgentError,
+    initializationState: CaidoInitializationState,
   ): CaidoAdapter;
   createTransport(stdin: Readable, stdout: Writable): Transport;
+  createAuditLogger?: (
+    options: ConstructorParameters<typeof AuditLogger>[0],
+  ) => Pick<AuditLogger, "record" | "flush" | "close">;
+  closeClient?: (client: RuntimeClient) => Promise<void>;
+  createActiveTools?: (
+    adapter: CaidoAdapter,
+    options: { bodyLimit: number; maxBatch: number },
+  ) => readonly ToolDefinition[];
 }
 
 const productionDependencies: RuntimeDependencies = {
   createClient: (config, env, cache, onRequest) =>
     createCaidoClient(config, env, cache, onRequest) as RuntimeClient,
   connectClient: connectCaido,
-  createAdapter: (client, initializationError) =>
+  createAdapter: (client, initializationState) =>
     new SdkCaidoAdapter(client, {
-      ...(initializationError === undefined ? {} : { initializationError }),
+      initializationState,
     }),
   createTransport: (stdin, stdout) => new StdioServerTransport(stdin, stdout),
+  createAuditLogger: (options) => new AuditLogger(options),
+  closeClient: async (client) => {
+    if (client.close !== undefined) {
+      await client.close();
+    } else if (client.disconnect !== undefined) {
+      await client.disconnect();
+    }
+  },
+  createActiveTools: () => [],
 };
 
 export interface Runtime {
@@ -84,12 +138,34 @@ async function connectWithinDeadline(
   client: RuntimeClient,
   timeoutMs: number,
   connectClient: RuntimeDependencies["connectClient"],
+  closeClient: NonNullable<RuntimeDependencies["closeClient"]>,
+  signal: AbortSignal,
 ): Promise<void> {
   let timer: NodeJS.Timeout | undefined;
   const pending = connectClient(client);
+  let owned = true;
+  const closeLateConnection = async (): Promise<void> => {
+    if (!owned) await closeClient(client);
+  };
+  void pending.then(closeLateConnection, () => undefined).catch(() => undefined);
+  let rejectAborted: ((error: AgentError) => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    rejectAborted = reject;
+  });
+  const onAbort = (): void => {
+    rejectAborted?.(
+      new AgentError(
+        "CAIDO_UNREACHABLE",
+        "Caido initialization was cancelled during shutdown.",
+        true,
+      ),
+    );
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
   try {
     await Promise.race([
       pending,
+      aborted,
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () =>
@@ -106,8 +182,17 @@ async function connectWithinDeadline(
         timer.unref();
       }),
     ]);
+  } catch (error) {
+    owned = false;
+    try {
+      await closeClient(client);
+    } catch {
+      // Initialization remains failed even when the SDK has no close primitive.
+    }
+    throw error;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
     void pending.catch(() => undefined);
   }
 }
@@ -118,45 +203,45 @@ export async function createRuntime(
   dependencies: RuntimeDependencies = productionDependencies,
 ): Promise<Runtime> {
   const config = parseConfig(env);
-  const tokenCache = new SecureTokenCache(config.tokenCache);
+  const tokenCache = new OwnedTokenCache(
+    new SecureTokenCache(config.tokenCache),
+  );
+  const initializationState: CaidoInitializationState = {};
   const client = dependencies.createClient(config, env, tokenCache, () => {
     io.stderr.write(
       "Caido authentication requires completion in the configured browser.\n",
     );
   });
-  let connectionError: AgentError | undefined;
-  try {
-    await connectWithinDeadline(
-      client,
-      config.requestTimeoutMs,
-      dependencies.connectClient,
-    );
-  } catch (error) {
-    connectionError = initializationError(error);
-    io.stderr.write(`Caido connection diagnostic: ${connectionError.message}\n`);
-  }
-
-  const adapter = dependencies.createAdapter(client, connectionError);
-  const auditLogger = new AuditLogger({
-    path: config.auditLog,
-    maxBytes: 1_048_576,
-    maxFiles: 5,
-  });
+  const adapter = dependencies.createAdapter(client, initializationState);
+  const auditLogger =
+    dependencies.createAuditLogger?.({
+      path: config.auditLog,
+      maxBytes: 1_048_576,
+      maxFiles: 5,
+    }) ??
+    new AuditLogger({
+      path: config.auditLog,
+      maxBytes: 1_048_576,
+      maxFiles: 5,
+    });
   const executor = createToolExecutor({
     config,
     auditLogger,
     rateLimiter: new RateLimiter({ limit: 60, windowMs: 60_000 }),
   });
   const options = { bodyLimit: config.bodyLimit, maxBatch: config.maxBatch };
+  const activeTools = dependencies.createActiveTools?.(adapter, options) ?? [];
   const server = createServer({
     mode: config.mode,
-    tools: createReadOnlyTools(adapter, options),
+    tools: [...createReadOnlyTools(adapter, options), ...activeTools],
     resources: createReadOnlyResources(adapter, options),
     prompts: promptDefinitions,
     executor,
   });
   const transport = dependencies.createTransport(io.stdin, io.stdout);
-  await server.connect(transport);
+  const startup = new AbortController();
+  const closeClient =
+    dependencies.closeClient ?? productionDependencies.closeClient!;
 
   let closing: Promise<void> | undefined;
   let resolveClosed: (() => void) | undefined;
@@ -168,17 +253,23 @@ export async function createRuntime(
     closing ??= (async () => {
       io.signals?.off("SIGINT", onSignal);
       io.signals?.off("SIGTERM", onSignal);
-      try {
-        await server.close();
-      } finally {
+      tokenCache.revoke();
+      startup.abort();
+      const errors: unknown[] = [];
+      for (const operation of [
+        () => server.close(),
+        () => adapter.close(),
+        () => auditLogger.flush(),
+        () => auditLogger.close(),
+      ]) {
         try {
-          await adapter.close();
-        } finally {
-          await auditLogger.flush();
-          await auditLogger.close();
+          await operation();
+        } catch (error) {
+          errors.push(error);
         }
       }
       resolveClosed?.();
+      if (errors.length > 0) throw errors[0];
     })();
     return closing;
   };
@@ -198,6 +289,41 @@ export async function createRuntime(
 
   io.signals?.on("SIGINT", onSignal);
   io.signals?.on("SIGTERM", onSignal);
+
+  let connectionError: AgentError | undefined;
+  try {
+    await connectWithinDeadline(
+      client,
+      config.requestTimeoutMs,
+      dependencies.connectClient,
+      closeClient,
+      startup.signal,
+    );
+  } catch (error) {
+    tokenCache.revoke();
+    connectionError = initializationError(error);
+    initializationState.initializationError = connectionError;
+    io.stderr.write(`Caido connection diagnostic: ${connectionError.message}\n`);
+  }
+
+  if (!startup.signal.aborted) {
+    const connecting = server.connect(transport);
+    let rejectAborted: ((error: Error) => void) | undefined;
+    const aborted = new Promise<never>((_, reject) => {
+      rejectAborted = reject;
+    });
+    const onAbort = (): void =>
+      rejectAborted?.(new Error("MCP startup cancelled"));
+    startup.signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      await Promise.race([connecting, aborted]);
+    } catch (error) {
+      void connecting.catch(() => undefined);
+      if (!startup.signal.aborted) throw error;
+    } finally {
+      startup.signal.removeEventListener("abort", onAbort);
+    }
+  }
 
   return { adapter, closed, close };
 }

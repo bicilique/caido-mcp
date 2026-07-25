@@ -192,6 +192,22 @@ export function mapRequestSummary(value: unknown): RequestSummary {
   };
 }
 
+export function mapRequestListSummary(value: unknown): RequestSummary {
+  const { request, response } = validated(sdkRequestResponseSchema, value);
+  return {
+    id: request.id,
+    method: request.method,
+    host: request.host,
+    path: request.path,
+    scheme: request.isTls ? "https" : "http",
+    port: request.port,
+    ...(response === undefined ? {} : { statusCode: response.statusCode }),
+    requestLength: 0,
+    ...(response === undefined ? {} : { responseLength: response.length }),
+    createdAt: request.createdAt.toISOString(),
+  };
+}
+
 export function mapRequestDetail(value: unknown): RequestDetail {
   const pair = validated(sdkRequestResponseSchema, value);
   return {
