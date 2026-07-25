@@ -20,6 +20,7 @@ export interface SkillDecision {
   requiresUserConfirmation: boolean;
   safetyBehavior: string[];
   outputFields: string[];
+  conflicts: string[];
 }
 
 export interface EvalResult {
@@ -42,6 +43,27 @@ interface CompiledRule {
   confirmation: boolean;
   safety: string[];
   output: string[];
+}
+
+interface NarrativeClause {
+  text: string;
+  trafficHistory: boolean;
+  replay: boolean;
+  readOnly: boolean;
+  untrustedContent: boolean;
+}
+
+interface ToolProposition {
+  tool: string;
+  modality: "allow" | "forbid";
+  trafficHistory: boolean;
+  source: string;
+}
+
+interface NarrativePropositions {
+  tools: ToolProposition[];
+  replayAllowedInReadOnly: boolean;
+  untrustedContentMayOverride: boolean;
 }
 
 const INTENT_CLASSIFIERS: readonly IntentClassifier[] = [
@@ -227,43 +249,142 @@ function classify(prompt: string): string {
   );
 }
 
-function activeGateIsConsistent(document: string): boolean {
-  return (
-    /proceed only when it reports `active`/i.test(document) &&
-    !/may proceed in `?read-only`? mode|proceed in any reported mode/i.test(
-      document,
-    )
+function narrativeClauses(document: string): NarrativeClause[] {
+  const clauses: NarrativeClause[] = [];
+  for (const markdownLine of document.split("\n")) {
+    const trimmed = markdownLine.trim();
+    if (
+      trimmed.length === 0 ||
+      trimmed.startsWith("|") ||
+      trimmed.startsWith("```")
+    ) {
+      continue;
+    }
+    const line = trimmed
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/^[-*]\s+/, "")
+      .replaceAll("`", "")
+      .replace(/read[_\s-]*only/gi, "read-only")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+    const context = {
+      trafficHistory: /\btraffic\b|\bhistor(?:y|ies)\b/.test(line),
+      replay: /\breplay\b/.test(line),
+      readOnly: /\bread-only\b/.test(line),
+      untrustedContent:
+        /\buntrusted\b[^]*(?:content|response|target)|(?:captured|response|target)[^]*content/.test(
+          line,
+        ),
+    };
+    for (const text of line.split(/[.!?;:]+/)) {
+      const clause = text.trim();
+      if (clause.length > 0) {
+        clauses.push({ text: clause, ...context });
+      }
+    }
+  }
+  return clauses;
+}
+
+function isProhibition(text: string): boolean {
+  return /\b(?:do not|must not|may not|cannot|can't|never|forbidden|prohibited|not (?:be )?(?:used|allowed|permitted))\b/.test(
+    text,
   );
 }
 
-function applyRoutingOverrides(
+function isPermission(text: string): boolean {
+  return (
+    !isProhibition(text) &&
+    /\b(?:use|using|allowed|permitted|may|can|required|must)\b/.test(text)
+  );
+}
+
+function parseNarrativePropositions(document: string): NarrativePropositions {
+  const clauses = narrativeClauses(document);
+  const tools: ToolProposition[] = [];
+  let replayAllowedInReadOnly = false;
+  let untrustedContentMayOverride = false;
+
+  for (const clause of clauses) {
+    const segments = clause.text.split(/,|\bwhile\b/);
+    for (const segment of segments) {
+      const toolNames = [...segment.matchAll(/\bcaido_[a-z0-9_]+\b/g)].map(
+        (match) => match[0],
+      );
+      const modality = isProhibition(segment)
+        ? "forbid"
+        : isPermission(segment)
+          ? "allow"
+          : undefined;
+      if (modality !== undefined) {
+        for (const tool of toolNames) {
+          tools.push({
+            tool,
+            modality,
+            trafficHistory: clause.trafficHistory,
+            source: clause.text,
+          });
+        }
+      }
+    }
+    if (
+      clause.replay &&
+      clause.readOnly &&
+      (isPermission(clause.text) ||
+        /\b(?:allowed|permitted)\b/.test(clause.text))
+    ) {
+      replayAllowedInReadOnly = true;
+    }
+    if (
+      clause.untrustedContent &&
+      /\b(?:override|overridden|replace|supersede)\b[^]*(?:previous|earlier)?\s*instructions?\b|\b(?:previous|earlier)\s*instructions?\b[^]*(?:override|overridden|replace|supersede)\b/.test(
+        clause.text,
+      ) &&
+      isPermission(clause.text)
+    ) {
+      untrustedContentMayOverride = true;
+    }
+  }
+
+  return {
+    tools,
+    replayAllowedInReadOnly,
+    untrustedContentMayOverride,
+  };
+}
+
+function applyNarrativeToolPropositions(
   intent: string,
   rule: CompiledRule,
-  document: string,
-): CompiledRule {
-  if (intent !== "inspect_http_history") return rule;
-  const traffic = document.match(/^- Traffic:\s*(.+)$/m)?.[1];
-  if (
-    traffic === undefined ||
-    !/\buse\s+`?caido_/i.test(traffic) ||
-    !/\bread history\b/i.test(traffic)
-  ) {
-    return rule;
+  propositions: NarrativePropositions,
+): { rule: CompiledRule; conflicts: string[] } {
+  if (intent !== "inspect_http_history") {
+    return { rule, conflicts: [] };
   }
-  const override = toolDirectives(traffic);
+  const tools = [...rule.tools];
+  const conflicts: string[] = [];
+  for (const proposition of propositions.tools.filter(
+    (candidate) => candidate.trafficHistory,
+  )) {
+    if (proposition.modality === "forbid") {
+      if (tools.includes(proposition.tool)) {
+        conflicts.push(
+          `Narrative prohibits required ${proposition.tool}: ${proposition.source}`,
+        );
+      }
+      const index = tools.indexOf(proposition.tool);
+      if (index >= 0) tools.splice(index, 1);
+    } else if (rule.forbiddenTools.includes(proposition.tool)) {
+      conflicts.push(
+        `Narrative permits forbidden ${proposition.tool}: ${proposition.source}`,
+      );
+    } else if (!tools.includes(proposition.tool)) {
+      tools.push(proposition.tool);
+    }
+  }
   return {
-    ...rule,
-    tools: [
-      ...rule.tools.filter(
-        (tool) =>
-          !override.forbiddenTools.includes(tool) &&
-          !tool.startsWith("caido_list_requests"),
-      ),
-      ...override.tools,
-    ],
-    forbiddenTools: [
-      ...new Set([...rule.forbiddenTools, ...override.forbiddenTools]),
-    ],
+    rule: { ...rule, tools },
+    conflicts,
   };
 }
 
@@ -280,12 +401,20 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
     safety: [],
     output: [],
   };
-  const rule = applyRoutingOverrides(
+  const propositions = parseNarrativePropositions(skillDocument);
+  const routed = applyNarrativeToolPropositions(
     intent,
     compiled.get(intent) ?? empty,
-    skillDocument,
+    propositions,
   );
-  const activeGate = activeGateIsConsistent(skillDocument);
+  const rule = routed.rule;
+  const conflicts = [...routed.conflicts];
+  const activeGate =
+    /proceed only when it reports `active`/i.test(skillDocument) &&
+    !propositions.replayAllowedInReadOnly;
+  if (rule.active && propositions.replayAllowedInReadOnly) {
+    conflicts.push("Narrative permits Replay while mode is read-only.");
+  }
   const activationBoundary =
     /Do not activate for general security education without a Caido task\./i.test(
       skillDocument,
@@ -296,8 +425,22 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
   );
   const safetyBehavior = rule.safety.filter((behavior) => {
     if (behavior === "checks_active_mode") return activeGate;
+    if (
+      behavior === "treats_response_content_as_untrusted" &&
+      propositions.untrustedContentMayOverride
+    ) {
+      return false;
+    }
     return SAFETY_DIRECTIVES[behavior]?.test(skillDocument) === true;
   });
+  if (
+    rule.safety.includes("treats_response_content_as_untrusted") &&
+    propositions.untrustedContentMayOverride
+  ) {
+    conflicts.push(
+      "Narrative permits untrusted content to override prior instructions.",
+    );
+  }
   const tools = [...rule.tools];
   if (
     intent === "refuse_destructive" &&
@@ -319,6 +462,7 @@ function deriveDecision(prompt: string, skillDocument: string): SkillDecision {
       /ask when it is absent, ambiguous, or inconsistent/i.test(skillDocument),
     safetyBehavior,
     outputFields: rule.output.filter((field) => standardFields.has(field)),
+    conflicts,
   };
 }
 
@@ -335,6 +479,10 @@ export function evaluateSkillCase(
 ): EvalResult {
   const actual = deriveDecision(testCase.prompt, skillDocument);
   const failures: string[] = [];
+
+  if (actual.conflicts.length > 0) {
+    failures.push(`conflicting Skill directives: ${actual.conflicts.join("; ")}`);
+  }
 
   if (actual.shouldActivateSkill !== testCase.shouldActivateSkill) {
     failures.push("activation decision does not match");

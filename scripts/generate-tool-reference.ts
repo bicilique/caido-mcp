@@ -1,5 +1,5 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
@@ -62,6 +62,7 @@ export function toolOutputJsonSchema(schema: z.ZodType): JsonSchemaObject {
 
 export async function readSkillMarkdownTree(root: string): Promise<string> {
   const documents: string[] = [];
+  const generatedReference = join(root, "references", "tool-selection.md");
   const walk = async (directory: string): Promise<void> => {
     const entries = await readdir(directory, { withFileTypes: true });
     for (const entry of entries.sort((left, right) =>
@@ -73,7 +74,7 @@ export async function readSkillMarkdownTree(root: string): Promise<string> {
       } else if (
         entry.isFile() &&
         entry.name.endsWith(".md") &&
-        basename(path) !== "tool-selection.md"
+        path !== generatedReference
       ) {
         documents.push(await readFile(path, "utf8"));
       }

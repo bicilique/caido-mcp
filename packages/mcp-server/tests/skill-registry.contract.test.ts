@@ -26,6 +26,7 @@ describe("Skill registry reference scan", () => {
     const root = await mkdtemp(join(tmpdir(), "caido-skill-registry-"));
     temporaryDirectories.push(root);
     await mkdir(join(root, "references", "nested"), { recursive: true });
+    await mkdir(join(root, "assets", "nested"), { recursive: true });
     await writeFile(join(root, "SKILL.md"), "Use `caido_health`.", "utf8");
     await writeFile(
       join(root, "references", "tool-selection.md"),
@@ -47,6 +48,17 @@ describe("Skill registry reference scan", () => {
     expect(() =>
       assertDocumentedRegistry(tools, initialDocuments),
     ).not.toThrow();
+
+    await writeFile(
+      join(root, "assets", "nested", "tool-selection.md"),
+      "Manual nested asset uses `caido_nested_asset_unknown`.",
+      "utf8",
+    );
+    const nestedAssetDocuments = await readSkillMarkdownTree(root);
+    expect(nestedAssetDocuments).toContain("caido_nested_asset_unknown");
+    expect(() =>
+      assertDocumentedRegistry(tools, nestedAssetDocuments),
+    ).toThrow(/caido_nested_asset_unknown/);
 
     await writeFile(
       join(root, "references", "nested", "manual.md"),
