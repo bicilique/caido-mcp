@@ -68,6 +68,7 @@ export class AuditLogger {
         {
           encoding: "utf8",
           mode: 0o600,
+          flush: true,
         },
       );
       await chmod(this.#path, 0o600);
