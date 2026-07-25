@@ -112,6 +112,17 @@ async function packageFixture(
   );
 }
 
+async function macosIntelStore(): Promise<string> {
+  const store = await mkdtemp(join(tmpdir(), "caido darwin x64 store "));
+  await packageFixture(store, "portable@1.0.0", "portable", {
+    name: "portable",
+    version: "1.0.0",
+    os: ["darwin"],
+    cpu: ["x64"],
+  });
+  return store;
+}
+
 describe("macOS Intel verifier", () => {
   it("rejects Apple Silicon without claiming Intel validation", async () => {
     const result = await runVerification("arm64", "x64");
@@ -131,7 +142,11 @@ describe("macOS Intel verifier", () => {
 
   it("verifies package count, stdio purity, credentials, permissions, and spaced paths", async () => {
     const sentinel = ["pat", "must", "not", "leak"].join("-");
-    const result = await runVerification("x86_64", "x64", { sentinel });
+    const store = await macosIntelStore();
+    const result = await runVerification("x86_64", "x64", {
+      sentinel,
+      store,
+    });
 
     expect(result.code, result.stderr).toBe(0);
     expect(result.stderr).toBe("");
@@ -199,8 +214,10 @@ describe("macOS Intel verifier", () => {
       stat(join(isolated, "packages/mcp-server/dist/cli.js")),
     ).resolves.toBeDefined();
 
+    const store = await macosIntelStore();
     const result = await runVerification("x86_64", "x64", {
       root: isolated,
+      store,
     });
     expect(result.code, result.stderr).toBe(0);
   }, 30_000);
