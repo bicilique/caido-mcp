@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 
 import { AuditLogger } from "../../core/src/security/audit-log.js";
+import { AgentError } from "../../core/src/errors.js";
 import { RateLimiter } from "../../core/src/security/rate-limit.js";
 import { z } from "zod";
 import { afterEach, describe, expect, it } from "vitest";
@@ -82,6 +83,27 @@ describe("security execution pipeline", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain("upstream-secret");
+  });
+
+  it("sanitizes secret-bearing AgentError messages in output and audit events", async () => {
+    const { execute, auditPath } = await executorFor();
+
+    const result = await execute(
+      tool(async () => {
+        throw new AgentError(
+          "UPSTREAM_ERROR",
+          "Caido rejected credential token=agent-error-secret.",
+          true,
+        );
+      }),
+      {},
+      new AbortController().signal,
+    );
+    const audit = await readFile(auditPath, "utf8");
+
+    expect(result).toMatchObject({ ok: false, error: { code: "UPSTREAM_ERROR" } });
+    expect(JSON.stringify(result)).not.toContain("agent-error-secret");
+    expect(audit).not.toContain("agent-error-secret");
   });
 
   it("aborts an in-flight handler when the caller cancels", async () => {

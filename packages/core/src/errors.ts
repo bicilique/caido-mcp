@@ -1,4 +1,5 @@
 import type { ToolError, ToolErrorCode } from "./types.js";
+import { redactSensitiveText } from "./security/redaction.js";
 
 export class AgentError extends Error {
   readonly code: ToolErrorCode;
@@ -21,9 +22,13 @@ export class AgentError extends Error {
 
 export function normalizeError(error: unknown): ToolError {
   if (error instanceof AgentError) {
+    const sanitizedMessage = redactSensitiveText(error.message);
     return {
       code: error.code,
-      message: error.message,
+      message:
+        sanitizedMessage === error.message
+          ? error.message
+          : "The operation failed without exposing sensitive details.",
       retryable: error.retryable,
       ...(error.remediation === undefined
         ? {}

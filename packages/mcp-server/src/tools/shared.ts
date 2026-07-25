@@ -4,7 +4,7 @@ import type { RequestDetail } from "../../../core/src/caido/adapter.js";
 import { boundBody, type BoundedBody } from "../../../core/src/security/body-limits.js";
 import {
   redactHeaders,
-  redactRawHttp,
+  redactSensitiveText,
   redactStructured,
 } from "../../../core/src/security/redaction.js";
 import type { ToolDefinition } from "../registry.js";
@@ -49,14 +49,14 @@ export function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-const SENSITIVE_QUERY_VALUE = /([?&](?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token|api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|password|session(?:[_-]?id)?))=[^&#\s"'<>]*/gi;
-const SENSITIVE_HEADER_LINE = /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|x-csrf-token|x-xsrf-token)\s*:\s*[^\r\n]*$/gim;
-const JSON_CONTENT_TYPE = /\bapplication\/(?:json|[^;]+\+json)\b/i;
-
 export function redactTextEvidence(value: string): string {
-  return redactRawHttp(value)
-    .replace(SENSITIVE_HEADER_LINE, "$1: [REDACTED]")
-    .replace(SENSITIVE_QUERY_VALUE, "$1=[REDACTED]");
+  return redactSensitiveText(value);
+}
+
+function boundedText(value: string, limit: number): string {
+  return new TextDecoder("utf-8", { fatal: false }).decode(
+    new TextEncoder().encode(value).slice(0, limit),
+  );
 }
 
 export function serializeBody(
@@ -73,15 +73,17 @@ export function serializeBody(
     return bounded;
   }
 
-  if (JSON_CONTENT_TYPE.test(contentType)) {
-    try {
-      return {
-        ...bounded,
-        text: JSON.stringify(redactStructured(JSON.parse(bounded.text))),
-      };
-    } catch {
-      // Invalid JSON remains text evidence and receives text-level redaction below.
-    }
+  try {
+    const fullText = new TextDecoder("utf-8", { fatal: false }).decode(body);
+    return {
+      ...bounded,
+      text: boundedText(
+        JSON.stringify(redactStructured(JSON.parse(fullText))),
+        bodyLimit,
+      ),
+    };
+  } catch {
+    // Non-JSON text remains bounded evidence and receives text-level redaction below.
   }
   return { ...bounded, text: redactTextEvidence(bounded.text) };
 }

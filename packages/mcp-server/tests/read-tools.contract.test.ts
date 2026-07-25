@@ -27,7 +27,7 @@ const expectedNames = [
 const closers: Array<() => Promise<void>> = [];
 afterEach(async () => Promise.all(closers.splice(0).map((close) => close())));
 
-async function clientFor(adapter = createTestAdapter()) {
+async function clientFor(adapter = createTestAdapter(), bodyLimit = 4096) {
   const server = createServer({
     mode: "read-only",
     executor: createToolExecutor({
@@ -36,7 +36,7 @@ async function clientFor(adapter = createTestAdapter()) {
         mode: "read-only",
         requireScope: true,
         allowSensitiveHeaders: false,
-        bodyLimit: 4096,
+        bodyLimit,
         maxBatch: 20,
         requestTimeoutMs: 1_000,
         auditLog: "/unused/audit.jsonl",
@@ -46,7 +46,7 @@ async function clientFor(adapter = createTestAdapter()) {
       rateLimiter: { consume: () => undefined },
     }),
     tools: createReadOnlyTools(adapter, {
-      bodyLimit: 4096,
+      bodyLimit,
       maxBatch: 20,
     }),
   });
@@ -175,5 +175,99 @@ describe("read-only tool catalog", () => {
     });
 
     expect(JSON.stringify(result.structuredContent)).not.toContain("text-secret");
+  });
+
+  it("redacts literal token fields from JSON request evidence", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        getRequests: async () => [
+          {
+            id: "request-token",
+            method: "POST",
+            host: "example.test",
+            path: "/api/token",
+            scheme: "https",
+            port: 443,
+            requestLength: 50,
+            responseLength: 0,
+            createdAt: "2026-07-25T00:00:00.000Z",
+            request: {
+              headers: [],
+              contentType: "application/json",
+              body: new TextEncoder().encode('{"token":"literal-token-secret"}'),
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await client.callTool({
+      name: "caido_get_request",
+      arguments: { requestIds: ["request-token"] },
+    });
+
+    expect(JSON.stringify(result.structuredContent)).not.toContain("literal-token-secret");
+  });
+
+  it("redacts valid JSON before applying the body evidence limit", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        getRequests: async () => [
+          {
+            id: "request-truncated-json",
+            method: "POST",
+            host: "example.test",
+            path: "/api/upload",
+            scheme: "https",
+            port: 443,
+            requestLength: 100,
+            responseLength: 0,
+            createdAt: "2026-07-25T00:00:00.000Z",
+            request: {
+              headers: [],
+              contentType: "application/json",
+              body: new TextEncoder().encode(
+                '{"token":"truncated-json-secret","padding":"evidence that exceeds the body limit"}',
+              ),
+            },
+          },
+        ],
+      }),
+      24,
+    );
+
+    const result = await client.callTool({
+      name: "caido_get_request",
+      arguments: { requestIds: ["request-truncated-json"] },
+    });
+
+    const body = (result.structuredContent as {
+      data: Array<{ request: { body: { limit: number; text: string; truncated: boolean } } }>;
+    }).data[0]?.request.body;
+    expect(body).toMatchObject({ limit: 24, truncated: true });
+    expect(body?.text).not.toContain("truncated-json-secret");
+    expect(body?.text).not.toContain("truncated-json");
+  });
+
+  it("redacts bounded JSON finding evidence", async () => {
+    const client = await clientFor(
+      createTestAdapter({
+        getFinding: async () => ({
+          id: "finding-1",
+          title: "Token finding",
+          severity: "high",
+          requestIds: ["request-1"],
+          description: "Captured evidence.",
+          evidence: '{"token":"finding-token-secret"}',
+        }),
+      }),
+    );
+
+    const result = await client.callTool({
+      name: "caido_get_finding",
+      arguments: { id: "finding-1" },
+    });
+
+    expect(JSON.stringify(result.structuredContent)).not.toContain("finding-token-secret");
   });
 });
