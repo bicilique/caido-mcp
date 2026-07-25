@@ -27,30 +27,60 @@ const tokenPath = resolve(
 const sentinel =
   process.env.CAIDO_VERIFY_SENTINEL ||
   ["caido", "verification", "pat", "sentinel"].join("-");
-const child = spawn(process.execPath, [server], {
-  cwd: process.cwd(),
-  env: {
-    ...process.env,
-    CAIDO_URL: "http://127.0.0.1:1",
-    CAIDO_PAT: sentinel,
-    CAIDO_REQUEST_TIMEOUT_MS: "20",
-    CAIDO_AUDIT_LOG: auditPath,
-    CAIDO_TOKEN_CACHE: tokenPath,
-  },
-  stdio: ["pipe", "pipe", "pipe"],
-  shell: false,
-});
+
+async function readOptional(path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+const monitoredBefore = await readOptional(tokenPath);
+if (monitoredBefore?.includes(sentinel)) {
+  throw new Error("Verifier sentinel found in monitored token cache.");
+}
+
+let child;
 let stdout = "";
 let stderr = "";
-child.stdout.setEncoding("utf8").on("data", (chunk) => {
+let pendingStdout = "";
+const completeLines = [];
+
+function collectStdout(chunk) {
   stdout += chunk;
-});
-child.stderr.setEncoding("utf8").on("data", (chunk) => {
-  stderr += chunk;
-});
+  pendingStdout += chunk;
+  for (;;) {
+    const newline = pendingStdout.indexOf("\n");
+    if (newline === -1) return;
+    completeLines.push(pendingStdout.slice(0, newline).replace(/\r$/u, ""));
+    pendingStdout = pendingStdout.slice(newline + 1);
+  }
+}
+
+function parsedFrames(includeFinalFragment = false) {
+  const lines = [...completeLines];
+  if (includeFinalFragment && pendingStdout.length > 0) {
+    lines.push(pendingStdout.replace(/\r$/u, ""));
+  }
+  return lines.filter(Boolean).map((line) => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      throw new Error("MCP stdout contained a non-JSON line.");
+    }
+  });
+}
 
 async function waitForExit(timeoutMs) {
-  if (child.exitCode !== null || child.signalCode !== null) return true;
+  if (
+    child === undefined ||
+    child.exitCode !== null ||
+    child.signalCode !== null
+  ) {
+    return true;
+  }
   return new Promise((resolveExit) => {
     const finish = (value) => {
       clearTimeout(timeout);
@@ -65,6 +95,7 @@ async function waitForExit(timeoutMs) {
 }
 
 async function terminate() {
+  if (child === undefined) return;
   child.stdin.end();
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -75,20 +106,32 @@ async function terminate() {
   }
 }
 
-function parsedFrames() {
-  return stdout
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        throw new Error("MCP stdout contained a non-JSON line.");
-      }
-    });
+function assertPrivateMode(label, metadata, expected) {
+  if ((metadata.mode & 0o777) !== expected) {
+    throw new Error(`${label} permissions were not owner-only.`);
+  }
 }
 
 async function verify() {
+  child = spawn(process.execPath, [server], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      CAIDO_URL: "http://127.0.0.1:1",
+      CAIDO_PAT: sentinel,
+      CAIDO_REQUEST_TIMEOUT_MS: "20",
+      CAIDO_AUDIT_LOG: auditPath,
+      CAIDO_TOKEN_CACHE: tokenPath,
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+    shell: false,
+  });
+  child.stdin.on("error", () => {});
+  child.stdout.setEncoding("utf8").on("data", collectStdout);
+  child.stderr.setEncoding("utf8").on("data", (chunk) => {
+    stderr += chunk;
+  });
+
   const messages = [
     {
       jsonrpc: "2.0",
@@ -115,7 +158,7 @@ async function verify() {
     messages.map((message) => JSON.stringify(message)).join("\n") + "\n",
   );
 
-  const responseDeadline = Date.now() + 5_000;
+  const responseDeadline = Date.now() + 10_000;
   while (Date.now() < responseDeadline) {
     const ids = new Set(
       parsedFrames()
@@ -127,7 +170,8 @@ async function verify() {
     await new Promise((resolveWait) => setTimeout(resolveWait, 20));
   }
 
-  const frames = parsedFrames();
+  await terminate();
+  const frames = parsedFrames(true);
   const responses = new Map();
   for (const frame of frames) {
     if (
@@ -169,42 +213,49 @@ async function verify() {
     throw new Error("MCP discovery or health response was malformed.");
   }
 
-  await terminate();
+  const [audit, monitoredAfter] = await Promise.all([
+    readFile(auditPath, "utf8"),
+    readOptional(tokenPath),
+  ]);
+  if (
+    `${stdout}${stderr}${audit}${monitoredBefore ?? ""}${monitoredAfter ?? ""}`.includes(
+      sentinel,
+    )
+  ) {
+    throw new Error("Verifier sentinel escaped into monitored token cache.");
+  }
+
   const realServer = await realpath(server);
   const coreEntrypoint = resolve(
     dirname(realServer),
     "../../core/dist/index.js",
   );
   const { SecureTokenCache } = await import(pathToFileURL(coreEntrypoint).href);
-  const cache = new SecureTokenCache(tokenPath);
-  await cache.save({
-    accessToken: ["verification", "access", "value"].join("-"),
-    refreshToken: ["verification", "refresh", "value"].join("-"),
-  });
-
-  const [audit, token, auditDirectory, tokenDirectory] = await Promise.all([
-    readFile(auditPath, "utf8"),
-    readFile(tokenPath, "utf8"),
-    stat(dirname(auditPath)),
-    stat(dirname(tokenPath)),
-  ]);
-  const [auditFile, tokenFile] = await Promise.all([
-    stat(auditPath),
-    stat(tokenPath),
-  ]);
-  for (const [label, metadata, expected] of [
-    ["audit directory", auditDirectory, 0o700],
-    ["token directory", tokenDirectory, 0o700],
-    ["audit file", auditFile, 0o600],
-    ["token file", tokenFile, 0o600],
-  ]) {
-    if ((metadata.mode & 0o777) !== expected) {
-      throw new Error(`${label} permissions were not owner-only.`);
+  const probePath = `${tokenPath}.permission-probe-${process.pid}`;
+  const probeCache = new SecureTokenCache(probePath);
+  try {
+    await probeCache.save({
+      accessToken: ["verification", "access", "value"].join("-"),
+      refreshToken: ["verification", "refresh", "value"].join("-"),
+    });
+    const [auditDirectory, tokenDirectory, auditFile, probeFile] =
+      await Promise.all([
+        stat(dirname(auditPath)),
+        stat(dirname(tokenPath)),
+        stat(auditPath),
+        stat(probePath),
+      ]);
+    assertPrivateMode("audit directory", auditDirectory, 0o700);
+    assertPrivateMode("token directory", tokenDirectory, 0o700);
+    assertPrivateMode("audit file", auditFile, 0o600);
+    assertPrivateMode("token probe file", probeFile, 0o600);
+    if (monitoredAfter !== undefined) {
+      assertPrivateMode("monitored token file", await stat(tokenPath), 0o600);
     }
+  } finally {
+    await probeCache.clear();
   }
-  if (`${stdout}${stderr}${audit}${token}`.includes(sentinel)) {
-    throw new Error("Verifier sentinel escaped its credential boundary.");
-  }
+
   console.log(
     `MCP stdio verified (${responses.get(2).result.tools.length} tools, ${responses.get(3).result.resources.length} resources, ${responses.get(4).result.prompts.length} prompts).`,
   );

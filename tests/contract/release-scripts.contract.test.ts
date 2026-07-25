@@ -61,10 +61,10 @@ async function packageFixture(
 
 describe("secret scanner", () => {
   it("detects HTTP and token-cache credentials without echoing values", async () => {
-    const bearer = ["BeArEr", "Value", "A1b2C3d4E5f6"].join("-");
-    const apiKey = ["Api", "Value", "A1b2C3d4E5f6"].join("-");
-    const access = ["Access", "Value", "A1b2C3d4E5f6"].join("-");
-    const refresh = ["Refresh", "Value", "A1b2C3d4E5f6"].join("-");
+    const bearer = ["m7q2v9x4c8k3p6w5", "t1n0r7b4"].join("");
+    const apiKey = ["f4a9d2s8k6j1h7g5", "q3w0e9r2"].join("");
+    const access = ["z8x2c7v4b9n1m6a5", "s3d0f8j4"].join("");
+    const refresh = ["p6o2i9u4y7t1r8e5", "w3q0a6s2"].join("");
     const fixture = await gitFixture({
       "request.txt": `Authori${"zation"}: Bea${"rer"} ${bearer}\napi_${"key"}=${apiKey}\n`,
       "cache.json": JSON.stringify({
@@ -157,5 +157,31 @@ describe("license inventory", () => {
     await chmod(manifest, 0o600);
     expect(unreadable.code).not.toBe(0);
     expect(unreadable.stderr).toMatch(/cannot read package manifest/i);
-  });
+
+    const unreadableDirectoryStore = await mkdtemp(
+      join(tmpdir(), "caido unreadable license directory "),
+    );
+    await packageFixture(
+      unreadableDirectoryStore,
+      "directory@1.0.0",
+      "directory",
+      { name: "directory", version: "1.0.0", license: "MIT" },
+    );
+    const modules = join(
+      unreadableDirectoryStore,
+      "directory@1.0.0",
+      "node_modules",
+    );
+    await chmod(modules, 0o000);
+    const unreadableDirectory = await run(
+      tsx,
+      [licenseInventory, "--store", unreadableDirectoryStore],
+      root,
+    );
+    await chmod(modules, 0o700);
+    expect(unreadableDirectory.code).not.toBe(0);
+    expect(unreadableDirectory.stderr).toMatch(
+      /cannot read package directory/i,
+    );
+  }, 15_000);
 });

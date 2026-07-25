@@ -52,12 +52,22 @@ const detectors: readonly Detector[] = [
 ];
 
 function looksLikeCredential(value: string): boolean {
-  return (
-    value.length >= 16 &&
-    /[a-z]/u.test(value) &&
-    /[A-Z]/u.test(value) &&
-    /\d/u.test(value)
-  );
+  if (
+    /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/u.test(value) ||
+    value.length < 24 ||
+    !/\d/u.test(value)
+  ) {
+    return false;
+  }
+  const counts = new Map<string, number>();
+  for (const character of value) {
+    counts.set(character, (counts.get(character) ?? 0) + 1);
+  }
+  const entropy = [...counts.values()].reduce((total, count) => {
+    const probability = count / value.length;
+    return total - probability * Math.log2(probability);
+  }, 0);
+  return counts.size >= 10 && entropy >= 3;
 }
 
 const rootIndex = process.argv.indexOf("--root");

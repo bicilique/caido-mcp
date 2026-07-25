@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 type PackageMetadata = {
@@ -9,12 +9,14 @@ type PackageMetadata = {
 };
 
 async function packageManifestPaths(modules: string): Promise<string[]> {
+  await assertReadableDirectory(modules);
   const paths: string[] = [];
   const candidates = await readdir(modules, { withFileTypes: true });
   for (const candidate of candidates) {
     if (candidate.name === ".bin") continue;
     const path = join(modules, candidate.name);
     if (candidate.name.startsWith("@")) {
+      await assertReadableDirectory(path);
       const scoped = await readdir(path, { withFileTypes: true });
       for (const child of scoped) {
         if (child.isDirectory() || child.isSymbolicLink()) {
@@ -28,13 +30,38 @@ async function packageManifestPaths(modules: string): Promise<string[]> {
   return paths;
 }
 
+async function assertReadableDirectory(path: string): Promise<void> {
+  const metadata = await stat(path);
+  if (
+    !metadata.isDirectory() ||
+    (metadata.mode & 0o444) === 0 ||
+    (metadata.mode & 0o111) === 0
+  ) {
+    throw new Error("cannot read package directory");
+  }
+}
+
+async function assertReadableManifest(path: string): Promise<void> {
+  const metadata = await stat(path);
+  if (!metadata.isFile() || (metadata.mode & 0o444) === 0) {
+    throw new Error("cannot read package manifest");
+  }
+}
+
 const storeIndex = process.argv.indexOf("--store");
 const store = resolve(
   storeIndex === -1
     ? "node_modules/.pnpm"
     : (process.argv[storeIndex + 1] ?? ""),
 );
-const entries = await readdir(store, { withFileTypes: true });
+let entries;
+try {
+  await assertReadableDirectory(store);
+  entries = await readdir(store, { withFileTypes: true });
+} catch {
+  console.error("License inventory failed: cannot read package directory.");
+  process.exit(1);
+}
 const inventory = new Map<string, string>();
 const forbidden: string[] = [];
 const failures: string[] = [];
@@ -48,11 +75,13 @@ for (const entry of entries.sort((left, right) =>
   try {
     paths = await packageManifestPaths(modules);
   } catch {
+    failures.push("cannot read package directory");
     continue;
   }
   for (const manifestPath of paths) {
     let source: string;
     try {
+      await assertReadableManifest(manifestPath);
       source = await readFile(manifestPath, "utf8");
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
@@ -67,7 +96,7 @@ for (const entry of entries.sort((left, right) =>
     try {
       metadata = JSON.parse(source) as PackageMetadata;
     } catch {
-      failures.push("cannot read package manifest");
+      failures.push("malformed package manifest");
       continue;
     }
     if (

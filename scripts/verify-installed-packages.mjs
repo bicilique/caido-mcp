@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 function safeLabel(metadata) {
@@ -8,12 +8,14 @@ function safeLabel(metadata) {
 }
 
 async function packageDirectories(modules) {
+  await assertReadableDirectory(modules);
   const directories = [];
   const entries = await readdir(modules, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.name === ".bin") continue;
     const path = join(modules, entry.name);
     if (entry.name.startsWith("@")) {
+      await assertReadableDirectory(path);
       const scoped = await readdir(path, { withFileTypes: true });
       for (const child of scoped) {
         if (child.isDirectory() || child.isSymbolicLink()) {
@@ -25,6 +27,24 @@ async function packageDirectories(modules) {
     }
   }
   return directories;
+}
+
+async function assertReadableDirectory(path) {
+  const metadata = await stat(path);
+  if (
+    !metadata.isDirectory() ||
+    (metadata.mode & 0o444) === 0 ||
+    (metadata.mode & 0o111) === 0
+  ) {
+    throw new Error("unreadable package directory");
+  }
+}
+
+async function assertReadableManifest(path) {
+  const metadata = await stat(path);
+  if (!metadata.isFile() || (metadata.mode & 0o444) === 0) {
+    throw new Error("unreadable package manifest");
+  }
 }
 
 function supports(values, target) {
@@ -40,16 +60,21 @@ function binaryIsArm64Only(metadata) {
     binary: metadata.binary,
     bin: metadata.bin,
   }).toLowerCase();
-  return (
+  const darwinArm64 =
     /(?:darwin|macos|osx)[-_]?arm64|arm64[-_]?(?:darwin|macos|osx)/u.test(
       evidence,
-    ) && !/(?:x64|x86_64|universal)/u.test(evidence)
-  );
+    );
+  const darwinX64 =
+    /(?:darwin|macos|osx)[-_]?(?:x64|x86_64)|(?:x64|x86_64)[-_]?(?:darwin|macos|osx)|(?:darwin|macos|osx)[-_]?universal|universal[-_]?(?:darwin|macos|osx)/u.test(
+      evidence,
+    );
+  return darwinArm64 && !darwinX64;
 }
 
 const store = resolve(process.argv[2] ?? "node_modules/.pnpm");
 let entries;
 try {
+  await assertReadableDirectory(store);
   entries = await readdir(store, { withFileTypes: true });
 } catch {
   console.error(
@@ -69,15 +94,33 @@ for (const entry of entries.sort((left, right) =>
   try {
     directories = await packageDirectories(modules);
   } catch {
+    failures.push("unreadable package directory");
     continue;
   }
   for (const directory of directories) {
+    const manifestPath = join(directory, "package.json");
     let metadata;
     try {
-      metadata = JSON.parse(
-        await readFile(join(directory, "package.json"), "utf8"),
+      await assertReadableManifest(manifestPath);
+    } catch (error) {
+      failures.push(
+        error?.code === "ENOENT"
+          ? "missing package manifest"
+          : "unreadable package manifest",
       );
+      continue;
+    }
+    let source;
+    try {
+      source = await readFile(manifestPath, "utf8");
     } catch {
+      failures.push("unreadable package manifest");
+      continue;
+    }
+    try {
+      metadata = JSON.parse(source);
+    } catch {
+      failures.push("malformed package manifest");
       continue;
     }
     if (
@@ -92,23 +135,26 @@ for (const entry of entries.sort((left, right) =>
     if (!supports(metadata.os, "darwin")) {
       failures.push(`${label} does not support darwin`);
     }
-    if (!supports(metadata.cpu, "x64") || binaryIsArm64Only(metadata)) {
-      failures.push(`${label} is arm64-only`);
+    if (!supports(metadata.cpu, "x64")) {
+      failures.push(`${label} does not support x64`);
+    }
+    if (binaryIsArm64Only(metadata)) {
+      failures.push(`${label} darwin artifact is arm64-only`);
     }
   }
 }
 
-if (packages.size === 0) {
-  console.error(
-    "Installed package verification failed: zero package manifests were scanned.",
-  );
-  process.exit(1);
-}
 if (failures.length > 0) {
   console.error("Installed package verification failed:");
   for (const failure of [...new Set(failures)].sort()) {
     console.error(`- ${failure}`);
   }
+  process.exit(1);
+}
+if (packages.size === 0) {
+  console.error(
+    "Installed package verification failed: zero package manifests were scanned.",
+  );
   process.exit(1);
 }
 console.log(
