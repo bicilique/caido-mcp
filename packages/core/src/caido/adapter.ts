@@ -62,6 +62,12 @@ export interface FindingDetail extends FindingSummary {
   evidence: string;
 }
 
+export interface CreateFindingInput {
+  title: string;
+  description: string;
+  requestId: string;
+}
+
 export interface ReplaySessionSummary {
   id: string;
   name: string;
@@ -126,7 +132,7 @@ export interface CaidoAdapter {
   selectProject(id: string): Promise<MutationEvidence>;
   replayRequest(requestId: string, raw: RawMessage): Promise<MutationEvidence>;
   sendRawRequest(input: RawRequestInput): Promise<MutationEvidence>;
-  createFinding(input: Omit<FindingDetail, "id">): Promise<MutationEvidence>;
+  createFinding(input: CreateFindingInput): Promise<MutationEvidence>;
   updateFinding(
     id: string,
     input: Partial<Omit<FindingDetail, "id">>,

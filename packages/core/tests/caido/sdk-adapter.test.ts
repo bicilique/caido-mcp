@@ -186,8 +186,13 @@ function sdkFixture() {
         id === "finding-1"
           ? findingsBuilder["connection"].edges[0]?.node
           : undefined,
-      create: async (requestId: string, input: { title: string }) => {
-        events.push(`create-finding:${requestId}:${input.title}`);
+      create: async (
+        requestId: string,
+        input: { title: string; description?: string; reporter: string },
+      ) => {
+        events.push(
+          `create-finding:${requestId}:${input.title}:${input.description}:${input.reporter}`,
+        );
         return findingsBuilder["connection"].edges[0]?.node;
       },
       update: async (id: string, input: { title: string }) => {
@@ -377,6 +382,16 @@ describe("SdkCaidoAdapter", () => {
     const { adapter, events } = sdkFixture();
 
     expect(
+      await adapter.createFinding({
+        title: "Reflected input",
+        description: "Input is reflected.",
+        requestId: "request-1",
+      }),
+    ).toEqual({
+      requestIds: ["request-1"],
+      mutation: "create_finding",
+    });
+    expect(
       await adapter.updateFinding("finding-1", {
         title: "Confirmed reflected input",
       }),
@@ -406,6 +421,7 @@ describe("SdkCaidoAdapter", () => {
       mutation: "send_raw_request",
     });
     expect(events).toEqual([
+      "create-finding:request-1:Reflected input:Input is reflected.:caido-agent-kit",
       "update-finding:finding-1:Confirmed reflected input",
       "create-replay-session",
       "send-replay:session-created",
@@ -416,26 +432,27 @@ describe("SdkCaidoAdapter", () => {
 
   it.each([
     [
-      "create severity",
+      "create severity property",
       (adapter: SdkCaidoAdapter) =>
-        adapter.createFinding({
-          title: "Unsupported severity",
-          severity: "high",
-          requestIds: ["request-1"],
-          description: "Description",
-          evidence: "",
-        }),
+        Reflect.apply(adapter.createFinding, adapter, [
+          {
+            title: "Unsupported severity",
+            description: "Description",
+            requestId: "request-1",
+            severity: "",
+          },
+        ]),
     ],
     [
-      "create multiple request IDs",
+      "create requestIds property",
       (adapter: SdkCaidoAdapter) =>
-        adapter.createFinding({
-          title: "Multiple requests",
-          severity: "",
-          requestIds: ["request-1", "request-2"],
-          description: "Description",
-          evidence: "",
-        }),
+        Reflect.apply(adapter.createFinding, adapter, [
+          {
+            title: "Multiple requests",
+            description: "Description",
+            requestIds: ["request-1", "request-2"],
+          },
+        ]),
     ],
     [
       "update severity",
@@ -448,24 +465,16 @@ describe("SdkCaidoAdapter", () => {
         adapter.updateFinding("finding-1", { requestIds: ["request-2"] }),
     ],
     [
-      "create empty severity property",
+      "create evidence property",
       (adapter: SdkCaidoAdapter) =>
-        adapter.createFinding({
-          title: "Empty severity",
-          severity: "",
-          description: "Description",
-          evidence: "",
-        } as never),
-    ],
-    [
-      "create empty request IDs property",
-      (adapter: SdkCaidoAdapter) =>
-        adapter.createFinding({
-          title: "Empty requests",
-          requestIds: [],
-          description: "Description",
-          evidence: "",
-        } as never),
+        Reflect.apply(adapter.createFinding, adapter, [
+          {
+            title: "Unsupported evidence",
+            description: "Description",
+            requestId: "request-1",
+            evidence: "",
+          },
+        ]),
     ],
     [
       "update empty severity property",
@@ -483,6 +492,43 @@ describe("SdkCaidoAdapter", () => {
     await expect(call(adapter)).rejects.toEqual(
       expect.objectContaining<Partial<AgentError>>({
         code: "TOOL_DISABLED",
+        retryable: false,
+      }),
+    );
+    expect(events).toEqual([]);
+  });
+
+  it("rejects an empty supported create request ID before SDK mutation", async () => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(
+      adapter.createFinding({
+        title: "Missing request",
+        description: "Description",
+        requestId: "",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "INVALID_INPUT",
+        retryable: false,
+      }),
+    );
+    expect(events).toEqual([]);
+  });
+
+  it("rejects an omitted create request ID without an incidental TypeError", async () => {
+    const { adapter, events } = sdkFixture();
+
+    await expect(
+      Reflect.apply(adapter.createFinding, adapter, [
+        {
+          title: "Missing request",
+          description: "Description",
+        },
+      ]),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AgentError>>({
+        code: "INVALID_INPUT",
         retryable: false,
       }),
     );

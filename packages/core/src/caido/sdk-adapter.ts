@@ -11,6 +11,7 @@ import type {
 import { AgentError } from "../errors.js";
 import type {
   CaidoAdapter,
+  CreateFindingInput,
   FindingDetail,
   ListInput,
   MutationEvidence,
@@ -469,25 +470,30 @@ export class SdkCaidoAdapter implements CaidoAdapter {
   }
 
   async createFinding(
-    input: Omit<FindingDetail, "id">,
+    input: CreateFindingInput,
   ): Promise<MutationEvidence> {
     this.#ready();
-    const providedFields: object = input;
-    if ("severity" in providedFields || "requestIds" in providedFields) {
-      throw unavailable("Finding severity or request associations");
+    const supportedFields = new Set(["title", "description", "requestId"]);
+    if (Object.keys(input).some((field) => !supportedFields.has(field))) {
+      throw unavailable("Unsupported finding creation fields");
     }
-    const requestId = input.requestIds[0];
-    if (requestId === undefined) {
+    if (
+      typeof input.title !== "string" ||
+      input.title.trim() === "" ||
+      typeof input.description !== "string" ||
+      typeof input.requestId !== "string" ||
+      input.requestId.trim() === ""
+    ) {
       throw new AgentError(
         "INVALID_INPUT",
-        "A request ID is required to create a Caido finding.",
+        "A title, description, and request ID are required to create a Caido finding.",
         false,
       );
     }
-    const finding = await this.#client.finding.create(requestId, {
+    const finding = await this.#client.finding.create(input.requestId, {
       title: input.title,
       reporter: "caido-agent-kit",
-      description: findingDescription(input.description, input.evidence),
+      description: input.description,
     });
     return {
       requestIds: [finding.requestId],
