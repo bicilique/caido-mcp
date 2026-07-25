@@ -74,13 +74,22 @@ for (const rule of [
 for (const trackedPath of [
   "README.md",
   "README.id.md",
+  "packages/core/src/config.ts",
+  "tests/docs/documentation.test.ts",
+  "docs/02-architecture.md",
+  ".env.example",
+  "docs/release-checklist.md",
   "pnpm-lock.yaml",
   ".github/workflows/ci.yml",
   "skills/caido-operator/references/tool-selection.md",
 ]) {
-  const result = spawnSync("git", ["check-ignore", "-q", trackedPath], {
-    cwd: root,
-  });
+  const result = spawnSync(
+    "git",
+    ["check-ignore", "--no-index", "-q", trackedPath],
+    {
+      cwd: root,
+    },
+  );
   expect(result.status).toBe(1);
 }
 ```
@@ -185,13 +194,20 @@ Do not add broad patterns such as `*.json`, `*.jsonl`, `docs/`, `tests/`,
 Run:
 
 ```bash
-corepack pnpm exec prettier --write README.md .gitignore tests/docs/documentation.test.ts
+corepack pnpm exec prettier --write README.md tests/docs/documentation.test.ts
 corepack pnpm test:docs
 corepack pnpm scan:secrets
 git diff --check
 ```
 
-Expected: documentation tests and secret scan pass; no whitespace errors.
+Prettier formats only the supported Markdown and TypeScript files; it does not
+format the extensionless `.gitignore`. The documentation test separately
+validates every required ignore rule and runs `git check-ignore --no-index`
+against representative source, test, documentation, example, release-evidence,
+workflow, lockfile, and generated-documentation paths.
+
+Expected: formatting, documentation tests, and secret scan pass; no whitespace
+errors.
 
 - [ ] **Step 6: Commit the landing-page change**
 

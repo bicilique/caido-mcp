@@ -45,13 +45,22 @@ describe("release documentation", () => {
     for (const trackedPath of [
       "README.md",
       "README.id.md",
+      "packages/core/src/config.ts",
+      "tests/docs/documentation.test.ts",
+      "docs/02-architecture.md",
+      ".env.example",
+      "docs/release-checklist.md",
       "pnpm-lock.yaml",
       ".github/workflows/ci.yml",
       "skills/caido-operator/references/tool-selection.md",
     ]) {
-      const result = spawnSync("git", ["check-ignore", "-q", trackedPath], {
-        cwd: root,
-      });
+      const result = spawnSync(
+        "git",
+        ["check-ignore", "--no-index", "-q", trackedPath],
+        {
+          cwd: root,
+        },
+      );
       expect(result.status).toBe(1);
     }
   });
