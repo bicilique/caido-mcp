@@ -20,7 +20,10 @@ export default defineConfig({
       {
         test: {
           name: "contract",
-          include: ["packages/*/tests/**/*.contract.test.ts"],
+          include: [
+            "packages/*/tests/**/*.contract.test.ts",
+            "tests/contract/**/*.contract.test.ts",
+          ],
           environment: "node",
         },
       },
@@ -40,6 +43,13 @@ export default defineConfig({
           environment: "node",
           testTimeout: 30_000,
           hookTimeout: 10_000,
+        },
+      },
+      {
+        test: {
+          name: "docs",
+          include: ["tests/docs/**/*.test.ts"],
+          environment: "node",
         },
       },
     ],
