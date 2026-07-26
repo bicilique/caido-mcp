@@ -292,4 +292,34 @@ describe("release documentation", () => {
     expect(ignored).not.toMatch(/^tests\/?$/m);
     expect(ignored).not.toMatch(/^docs\/?$/m);
   });
+
+  it("provides conventional beginner-friendly project commands", async () => {
+    const [makefile, environment, agents] = await Promise.all([
+      document("Makefile"),
+      document(".env.example"),
+      document("AGENTS.md"),
+    ]);
+
+    for (const target of [
+      "setup",
+      "build",
+      "test",
+      "lint",
+      "doctor",
+      "config",
+      "verify",
+    ]) {
+      expect(makefile).toMatch(new RegExp(`^${target}:`, "m"));
+    }
+    expect(makefile).toContain("corepack pnpm install --frozen-lockfile");
+    expect(makefile).toContain("corepack pnpm run doctor");
+    expect(makefile).toContain("config:client $(CLIENT)");
+    expect(environment).toContain("CAIDO_AGENT_MODE=read-only");
+    expect(environment).toContain("CAIDO_REQUIRE_SCOPE=true");
+    expect(environment).not.toMatch(/^CAIDO_(?:PAT|TOKEN)=.+$/m);
+    expect(agents).toContain("packages/core");
+    expect(agents).toContain("packages/mcp-server");
+    expect(agents).toContain("corepack pnpm verify");
+    expect(agents).not.toMatch(/minimal scaffold/i);
+  });
 });
