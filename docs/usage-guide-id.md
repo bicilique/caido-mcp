@@ -16,15 +16,11 @@ Repositori saat ini berisi fondasi berikut:
 - skill portabel `skills/caido-operator`;
 - unit test, contract test, dan evaluasi skill.
 
-Namun, checkout ini **belum dapat dijalankan sebagai proses MCP lengkap**.
-Entry point `packages/mcp-server/src/index.ts` belum tersedia, sehingga build
-belum menghasilkan executable `packages/mcp-server/dist/index.js` yang
-ditunjuk oleh field `bin` package.
-
-Konfigurasi Codex, Claude Code, dan Cursor di bawah adalah konfigurasi
-**persiapan**. Jangan mengharapkan klien berhasil memulai server sampai entry
-point tersebut diimplementasikan, dibangun, dan `dist/index.js` benar-benar
-ada.
+Runtime stdio tersedia melalui `packages/mcp-server/src/cli.ts`. Setelah
+`pnpm build`, package menghasilkan `packages/mcp-server/dist/cli.js` sebagai
+executable yang ditunjuk oleh field `bin`.
+`packages/mcp-server/dist/index.js` tetap tersedia sebagai package root yang
+dapat diimpor tanpa otomatis memulai stdio.
 
 Rilis saat ini juga tidak menyediakan operasi destruktif, scanning, fuzzing,
 race testing, arbitrary GraphQL, arbitrary plugin RPC, shell execution,
@@ -68,21 +64,17 @@ Dari root repositori:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm --filter @caido-agent-kit/core build
-pnpm --filter @caido-agent-kit/mcp-server build
+pnpm build
 ```
 
-Perintah tersebut membangun source TypeScript yang sudah ada. Setelah build,
-periksa executable MCP:
+Setelah build, periksa executable MCP:
 
 ```bash
-test -f packages/mcp-server/dist/index.js
+test -f packages/mcp-server/dist/cli.js
 ```
 
-Pada kondisi repositori saat panduan ini ditulis, pemeriksaan terakhir gagal
-karena runtime entry point belum tersedia. Jangan mengubah konfigurasi klien
-untuk menunjuk ke file lain sebagai jalan pintas; `server.ts` adalah library,
-bukan proses stdio lengkap.
+Pemeriksaan harus berhasil. Gunakan `dist/cli.js` sebagai command stdio;
+`server.ts` adalah library internal, bukan entry point proses.
 
 ## Konfigurasi Caido dan kredensial
 
@@ -168,9 +160,6 @@ Ganti path contoh dengan hasil `pwd -P` dan `command -v node`. Path yang
 mengandung spasi harus tetap menjadi satu elemen `args`; jangan memecahnya
 secara manual.
 
-Contoh ini belum dapat dijalankan sampai
-`packages/mcp-server/dist/index.js` tersedia.
-
 ### Codex
 
 Codex membaca konfigurasi user dari `~/.codex/config.toml` atau konfigurasi
@@ -180,7 +169,7 @@ sama dipakai oleh Codex CLI dan extension.
 ```toml
 [mcp_servers.caido_agent_kit]
 command = "/usr/local/bin/node"
-args = ["/absolute/path/to/Caido/packages/mcp-server/dist/index.js"]
+args = ["/absolute/path/to/Caido/packages/mcp-server/dist/cli.js"]
 env_vars = ["CAIDO_PAT"]
 env = {
   CAIDO_URL = "http://127.0.0.1:8080",
@@ -191,8 +180,7 @@ env = {
 ```
 
 `env_vars = ["CAIDO_PAT"]` meneruskan variabel dari environment lokal tanpa
-menyimpan nilainya di TOML. Setelah executable tersedia, restart Codex lalu
-periksa:
+menyimpan nilainya di TOML. Restart Codex lalu periksa:
 
 ```bash
 codex mcp list
@@ -212,9 +200,7 @@ secara literal:
     "caido-agent-kit": {
       "type": "stdio",
       "command": "/usr/local/bin/node",
-      "args": [
-        "/absolute/path/to/Caido/packages/mcp-server/dist/index.js"
-      ],
+      "args": ["/absolute/path/to/Caido/packages/mcp-server/dist/cli.js"],
       "env": {
         "CAIDO_PAT": "${CAIDO_PAT}",
         "CAIDO_URL": "http://127.0.0.1:8080",
@@ -231,7 +217,7 @@ Claude Code mendukung ekspansi `${VAR}` di `.mcp.json`. Jika variabel wajib
 tidak ada, Claude Code mempertahankan teks literal dan memberi warning; server
 kemudian tidak akan memperoleh PAT yang valid. Untuk konfigurasi pribadi,
 gunakan `claude mcp add-json --scope local` dengan struktur stdio yang sama.
-Setelah runtime tersedia, verifikasi dengan:
+Verifikasi dengan:
 
 ```bash
 claude mcp list
@@ -251,9 +237,7 @@ konfigurasi global:
   "mcpServers": {
     "caido-agent-kit": {
       "command": "/usr/local/bin/node",
-      "args": [
-        "/absolute/path/to/Caido/packages/mcp-server/dist/index.js"
-      ],
+      "args": ["/absolute/path/to/Caido/packages/mcp-server/dist/cli.js"],
       "env": {
         "CAIDO_URL": "http://127.0.0.1:8080",
         "CAIDO_AGENT_MODE": "read-only",
@@ -270,8 +254,7 @@ sengaja tidak menyimpan PAT. Sediakan `CAIDO_PAT` melalui mekanisme environment
 aman yang didukung versi Cursor Anda dan pastikan proses server mewarisinya.
 Jika tidak ada mekanisme aman yang dapat diverifikasi, jangan aktifkan koneksi.
 
-Setelah runtime tersedia, periksa status dan daftar tool melalui UI MCP Cursor
-atau:
+Periksa status dan daftar tool melalui UI MCP Cursor atau:
 
 ```bash
 cursor-agent mcp list
@@ -314,7 +297,7 @@ Referensi penting:
 
 ## Validasi pertama
 
-Setelah runtime entry point tersedia dan klien dikonfigurasi:
+Setelah server dibangun dan klien dikonfigurasi:
 
 1. Pastikan Caido berjalan dan `CAIDO_URL` dapat dijangkau.
 2. Pastikan PAT berada di environment proses tanpa mencetak nilainya.
@@ -438,13 +421,13 @@ cache hanya sesuai prosedur yang terdokumentasi, lalu ulangi health check.
 
 ### Stdio gagal atau output rusak
 
-- Pastikan `packages/mcp-server/dist/index.js` benar-benar ada.
+- Pastikan `packages/mcp-server/dist/cli.js` benar-benar ada.
 - Pastikan `command` dan setiap argumen adalah path absolut yang benar.
 - Pisahkan stdout dan stderr; stdout hanya boleh berisi frame JSON-RPC.
 - Jangan menambahkan logging biasa ke stdout.
 
-Pada checkout saat ini, penyebab yang diharapkan adalah runtime entry point
-belum tersedia. Ini bukan masalah PAT atau scope.
+Jika `dist/cli.js` tidak ada, jalankan `pnpm build` dan periksa error build
+sebelum mendiagnosis PAT atau scope.
 
 ## Validasi untuk kontributor
 
@@ -466,9 +449,9 @@ git diff --check
 rg -n 'caido_[A-Za-z0-9]{20,}' docs/usage-guide-id.md
 ```
 
-Perintah `rg` terakhir harus tidak menghasilkan output. Jika real-Caido E2E
-belum tersedia, nyatakan status itu secara eksplisit; jangan menandai E2E
-sebagai lulus.
+Perintah `rg` terakhir harus tidak menghasilkan output. Jika credential dan
+instance real-Caido tidak tersedia, nyatakan test real-Caido sebagai skipped;
+jangan menandainya sebagai lulus.
 
 ## Sumber konfigurasi klien
 
