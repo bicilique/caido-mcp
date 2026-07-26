@@ -447,4 +447,55 @@ describe("release documentation", () => {
     expect(pullRequest).toMatch(/validation/i);
     expect(feature).toMatch(/security/i);
   });
+
+  it("provides a bounded scenario-driven advanced assessment workflow", async () => {
+    const [readme, examples, advanced] = await Promise.all([
+      document("README.md"),
+      document("docs/examples.md"),
+      document("docs/advanced-assessment-workflows.md"),
+    ]);
+
+    expect(readme).toContain("docs/advanced-assessment-workflows.md");
+    expect(examples).toContain("advanced-assessment-workflows.md");
+    expect(advanced).toMatch(/^## Automation Levels$/m);
+    for (const level of ["Level 0", "Level 1", "Level 2"]) {
+      expect(advanced).toContain(level);
+    }
+    expect(advanced).toMatch(/no Level 3|unattended active/i);
+    for (const heading of [
+      "Assessment Lifecycle",
+      "Assessment Brief Template",
+      "Scenario Template",
+      "Automated Read-Only Triage",
+      "Turning Analysis into Scenarios",
+      "Human Approval and Active Validation",
+      "Evidence, Confidence, and Findings",
+      "End-to-End Sample Assessment",
+      "Advanced Prompt Library",
+      "Stop Conditions and Recovery",
+      "Completion Checklist",
+    ]) {
+      expect(advanced, heading).toMatch(new RegExp(`^## ${heading}$`, "m"));
+    }
+    expect(
+      advanced.match(/^### Prompt \d+:/gm)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(5);
+    for (const requirement of [
+      /explicit authorization/i,
+      /selected scope/i,
+      /human approval/i,
+      /one (?:stated )?mutation/i,
+      /stop conditions/i,
+      /evidence identifiers/i,
+      /confidence/i,
+      /limitations/i,
+      /control request/i,
+      /identity context/i,
+      /expected secure behavior/i,
+      /cleanup/i,
+      /do not automatically retry|never automatically retry/i,
+    ]) {
+      expect(advanced).toMatch(requirement);
+    }
+  });
 });

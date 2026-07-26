@@ -18,6 +18,8 @@ checks before bounded active operations.
 
 - **New to Caido or MCP?** Follow [Getting Started](docs/getting-started.md).
 - **Already installed?** Copy a task from [Practical Examples](docs/examples.md).
+- **Running an assessment?** Use
+  [Advanced Assessment Workflows](docs/advanced-assessment-workflows.md).
 - **Need client syntax?** See [Client Configuration](docs/09-client-configuration.md).
 - **Something failed?** Run `make doctor`, then use
   [Troubleshooting](docs/10-troubleshooting.md).
@@ -152,6 +154,7 @@ bash scripts/verify-macos-intel.sh
 
 - [Getting started](docs/getting-started.md)
 - [Practical examples](docs/examples.md)
+- [Advanced assessment workflows](docs/advanced-assessment-workflows.md)
 - [Architecture](docs/02-architecture.md)
 - [Threat model](docs/03-threat-model.md)
 - [Tool catalog](docs/04-tool-catalog.md)

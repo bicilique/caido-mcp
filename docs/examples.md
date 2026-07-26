@@ -144,3 +144,11 @@ and uncertainty.
 
 Limitation: the example hostname and identifiers are placeholders. Never copy
 this authorization statement for a target you are not permitted to test.
+
+## Advanced Assessment Workflow
+
+When you need more than an individual task, use
+[Advanced Assessment Workflows](advanced-assessment-workflows.md). It explains
+how to automate bounded read-only triage, turn evidence into ranked scenarios,
+require human approval before one active validation, and report findings and
+coverage gaps without overstating certainty.
