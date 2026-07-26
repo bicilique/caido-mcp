@@ -401,4 +401,40 @@ describe("release documentation", () => {
       }
     }
   });
+
+  it("provides safe public contribution and review workflows", async () => {
+    const [readme, contributing, conduct, bug, feature, pullRequest] =
+      await Promise.all([
+        document("README.md"),
+        document("CONTRIBUTING.md"),
+        document("CODE_OF_CONDUCT.md"),
+        document(".github/ISSUE_TEMPLATE/bug-report.yml"),
+        document(".github/ISSUE_TEMPLATE/feature-request.yml"),
+        document(".github/pull_request_template.md"),
+      ]);
+
+    for (const path of [
+      "CONTRIBUTING.md",
+      "CODE_OF_CONDUCT.md",
+      "SECURITY.md",
+      "LICENSE",
+    ]) {
+      expect(readme).toContain(`](${path})`);
+    }
+    for (const command of [
+      "make setup",
+      "corepack pnpm test:unit",
+      "corepack pnpm check:generated",
+      "corepack pnpm verify",
+    ]) {
+      expect(contributing).toContain(command);
+    }
+    expect(conduct).toMatch(/Contributor Covenant[^]*2\.1/i);
+    expect(`${bug}\n${feature}\n${pullRequest}`).toMatch(
+      /do not include[^]*(?:credential|secret)/i,
+    );
+    expect(bug).toMatch(/reproduction/i);
+    expect(pullRequest).toMatch(/validation/i);
+    expect(feature).toMatch(/security/i);
+  });
 });

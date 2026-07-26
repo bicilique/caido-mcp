@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a bounded improvement with its security impact.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem before the mechanism.
+        Do not include credentials, secrets, unredacted traffic, customer data, or real target identifiers.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who needs this and what outcome is currently difficult?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change and one sample usage.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and authorization impact
+      description: Explain mode, scope, redaction, audit, credential, traffic, and compatibility effects.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials, secrets, live target data, and customer information.
+          required: true

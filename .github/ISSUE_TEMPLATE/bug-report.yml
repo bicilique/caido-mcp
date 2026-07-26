@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem without exposing sensitive data.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping. Report security vulnerabilities privately through SECURITY.md.
+        Do not include credentials, secrets, cookies, Authorization headers, unredacted traffic, customer data, or real target identifiers.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide safe, local steps using placeholders or repository fixtures.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include macOS architecture, Node, pnpm, Caido, and AI-client versions.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation performed
+      description: List doctor output categories and focused test commands, with sensitive values removed.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials, secrets, live target data, and customer information.
+          required: true
+        - label: This is not a vulnerability report requiring private disclosure.
+          required: true

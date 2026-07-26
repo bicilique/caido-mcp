@@ -160,9 +160,11 @@ bash scripts/verify-macos-intel.sh
 - [Troubleshooting](docs/10-troubleshooting.md)
 - [Roadmap](docs/roadmap.md)
 
-## Support
+## Contributing and Support
 
-Report vulnerabilities privately according to [SECURITY.md](SECURITY.md);
-never attach credentials or unredacted target traffic to a public issue.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Participation
+is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities
+privately according to [SECURITY.md](SECURITY.md); never attach credentials or
+unredacted target traffic to a public issue.
 
 Caido Agent Kit is available under the [MIT License](LICENSE).
