@@ -1,6 +1,7 @@
 # Roadmap
 
-Item berikut sengaja ditunda dan tidak didaftarkan atau tersedia sebagai tool MCP rilis pertama:
+The following capabilities are deliberately deferred and are not registered or
+available as MCP tools in the first release:
 
 - deleting projects;
 - deleting scopes;
@@ -14,4 +15,8 @@ Item berikut sengaja ditunda dan tidak didaftarkan atau tersedia sebagai tool MC
 - arbitrary GraphQL;
 - remote internet-exposed MCP transport.
 
-Alasannya adalah blast radius, kebutuhan otorisasi/policy tambahan, stabilitas API, atau risiko melewati audit Caido. Setiap kandidat memerlukan threat model, schema/adapter sempit, scope/mode gate, test RED, audit event, dokumentasi, dan persetujuan desain baru. Tidak ada placeholder tool untuk item ini.
+Each item has a large blast radius, needs additional authorization policy, uses
+an unstable API, or risks bypassing Caido audit boundaries. A candidate
+requires a new threat model, a narrow schema and adapter, scope/mode gates, a
+failing test, audit events, documentation, and design approval. There are no
+placeholder tools for deferred capabilities.

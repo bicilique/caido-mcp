@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { access, readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -129,7 +129,7 @@ describe("release documentation", () => {
   it("documents dated, official client configurations with safe absolute paths", async () => {
     const clients = await document("docs/09-client-configuration.md");
 
-    expect(clients).toMatch(/Diverifikasi[^]*2026-07-25/i);
+    expect(clients).toMatch(/Verified[^]*2026-07-25/i);
     expect(clients).toContain("Codex CLI");
     expect(clients).toContain("Claude Code");
     expect(clients).toContain("Cursor");
@@ -139,7 +139,7 @@ describe("release documentation", () => {
     );
     expect(clients).toMatch(/codex mcp list/);
     expect(clients).toMatch(/claude mcp (list|get)/);
-    expect(clients).toMatch(/auto-run[^]*(jangan|tidak)/i);
+    expect(clients).toMatch(/(?:do not|never)[^]*auto-run/i);
     expect(clients).toMatch(/stdout[^]*JSON-RPC[^]*stderr/is);
   });
 
@@ -153,7 +153,7 @@ describe("release documentation", () => {
 
     expect(readme).toMatch(/CAIDO_TOKEN_CACHE[^]*(hapus|remove)/i);
     for (const topic of [
-      /otorisasi|authorized use/i,
+      /otorisasi|authorized[- ]use/i,
       /prompt injection/i,
       /redaksi|redaction/i,
       /scope/i,
@@ -179,7 +179,7 @@ describe("release documentation", () => {
     ]) {
       expect(roadmap.toLowerCase()).toContain(deferred.toLowerCase());
     }
-    expect(roadmap).toMatch(/tidak (didaftarkan|tersedia)[^]*tool MCP/i);
+    expect(roadmap).toMatch(/not (?:registered|available)[^]*MCP tools?/i);
   });
 
   it("records honest Intel and opt-in E2E release evidence", async () => {
@@ -190,10 +190,9 @@ describe("release documentation", () => {
 
     expect(intel).toMatch(/uname -m[^]*x86_64/is);
     expect(intel).toMatch(/process\.arch[^]*x64/is);
-    expect(intel).toMatch(/arm64[^]*(gagal|ditolak)/i);
-    expect(intel).not.toMatch(/Rosetta (?:wajib|diperlukan)/i);
-    expect(intel).toMatch(/Rosetta tidak (?:wajib|diperlukan)/i);
-    expect(release).toMatch(/arm64[^]*tidak[^]*membuktikan[^]*Intel/is);
+    expect(intel).toMatch(/arm64[^]*(?:fails|rejected)/i);
+    expect(intel).toMatch(/Rosetta is[^]*not[^]*required/i);
+    expect(release).toMatch(/arm64[^]*does not[^]*prove[^]*Intel/is);
     expect(release).toContain(
       "CAIDO_E2E=1 CAIDO_AGENT_MODE=active CAIDO_PAT='<operator-supplied>' corepack pnpm test:e2e",
     );
@@ -321,5 +320,85 @@ describe("release documentation", () => {
     expect(agents).toContain("packages/mcp-server");
     expect(agents).toContain("corepack pnpm verify");
     expect(agents).not.toMatch(/minimal scaffold/i);
+  });
+
+  it("provides a complete English-first beginner path with safe examples", async () => {
+    const [readme, gettingStarted, examples] = await Promise.all([
+      document("README.md"),
+      document("docs/getting-started.md"),
+      document("docs/examples.md"),
+    ]);
+
+    expect(readme).toContain("docs/getting-started.md");
+    expect(readme).toContain("docs/examples.md");
+    expect(readme).toMatch(/What are Caido, MCP, and a Skill\?/i);
+    expect(readme).toContain("make doctor");
+    expect(readme).toContain("make config CLIENT=codex");
+    for (const command of ["make setup", "make build", "make doctor"]) {
+      expect(`${readme}\n${gettingStarted}`).toContain(command);
+    }
+    for (const heading of [
+      "Before You Begin",
+      "Install and Build",
+      "Run the Doctor",
+      "Connect Your AI Client",
+      "Your First Read-Only Task",
+      "Active Mode",
+      "Update",
+      "Uninstall",
+    ]) {
+      expect(gettingStarted, heading).toMatch(
+        new RegExp(`^## ${heading}$`, "m"),
+      );
+    }
+    expect(
+      examples.match(/^## Example \d+:/gm)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(5);
+    expect(examples).toContain("Objective:");
+    expect(examples).toContain("Evidence:");
+    expect(examples).toContain("Limitations:");
+    expect(`${readme}\n${gettingStarted}\n${examples}`).toMatch(
+      /explicit authorization/i,
+    );
+  });
+
+  it("keeps core references in English and all onboarding links valid", async () => {
+    const englishReferences = [
+      "docs/00-gap-analysis.md",
+      "docs/01-product-requirements.md",
+      "docs/04-tool-catalog.md",
+      "docs/05-skill-design.md",
+      "docs/06-macos-intel-guide.md",
+      "docs/07-testing-strategy.md",
+      "docs/08-agent-evaluation.md",
+      "docs/09-client-configuration.md",
+      "docs/10-troubleshooting.md",
+      "docs/release-checklist.md",
+      "docs/roadmap.md",
+    ];
+    for (const path of englishReferences) {
+      const content = await document(path);
+      expect(content, path).not.toMatch(
+        /^# (?:Analisis|Persyaratan|Katalog|Desain|Panduan|Strategi|Evaluasi|Konfigurasi|Pemecahan|Checklist)/m,
+      );
+    }
+
+    for (const path of [
+      "README.md",
+      "docs/getting-started.md",
+      "docs/examples.md",
+    ]) {
+      const content = await document(path);
+      const links = [
+        ...content.matchAll(/\]\((?!https?:)([^)#]+\.md)(?:#[^)]+)?\)/g),
+      ];
+      for (const match of links) {
+        const target = match[1];
+        expect(target, `link in ${path}`).toBeDefined();
+        await expect(
+          access(resolve(root, dirname(path), target as string)),
+        ).resolves.toBeUndefined();
+      }
+    }
   });
 });

@@ -1,7 +1,15 @@
-# Desain Skill
+# Skill Design
 
-`caido-operator` adalah satu Skill portabel. Frontmatter mendukung discovery; isi utama memuat activation boundary, precondition, authorization/scope, untrusted traffic, read-only-first flow, decision table, format evidence, recovery, contoh, anti-example, dan routing.
+`caido-operator` is one portable Skill. Its frontmatter supports discovery. Its
+main instructions define activation boundaries, preconditions,
+authorization/scope rules, untrusted-traffic handling, a read-only-first flow,
+deterministic decisions, evidence format, recovery, examples, anti-examples,
+and reference routing.
 
-Detail HTTPQL, Replay, finding, active testing, Intel, dan troubleshooting dimuat dari `references/` hanya saat dibutuhkan. Skill tidak memuat SDK client, credentials, shell execution, atau salinan katalog tool.
+HTTPQL, Replay, findings, active testing, Intel setup, and troubleshooting
+details load from `references/` only when needed. The Skill contains no SDK
+client, credential, shell execution, or duplicate tool catalog.
 
-Validasi statis memastikan frontmatter, link, dan ukuran progressive disclosure. Dua puluh kasus eval menekan aktivasi, gate active, credential protection, prompt injection, scope, pemilihan tool, dan field output.
+Static validation checks frontmatter, links, and progressive-disclosure size.
+Deterministic cases test activation, active gates, credential protection,
+prompt injection, scope, tool selection, and output fields.

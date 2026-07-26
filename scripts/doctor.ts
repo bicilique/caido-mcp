@@ -1,10 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import {
-  formatDoctorReport,
-  runDiagnostics,
-} from "./onboarding/doctor.js";
+import { formatDoctorReport, runDiagnostics } from "./onboarding/doctor.js";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(
@@ -19,7 +16,9 @@ const report = await runDiagnostics({
   platform: process.platform,
   architecture: process.arch,
   packageManager: manifest.packageManager ?? "not configured",
-  dependenciesInstalled: existsSync(resolve(repositoryRoot, "node_modules/.pnpm")),
+  dependenciesInstalled: existsSync(
+    resolve(repositoryRoot, "node_modules/.pnpm"),
+  ),
   cliBuilt: existsSync(
     resolve(repositoryRoot, "packages/mcp-server/dist/cli.js"),
   ),

@@ -1,38 +1,53 @@
-# Konfigurasi Klien
+# Client Configuration
 
-Diverifikasi terhadap dokumentasi resmi pada **2026-07-25**; tautan primer ada di [research-current-sources.md](research-current-sources.md). Periksa ulang saat rilis karena sintaks klien dapat berubah. Contoh memakai `/Applications/Node 24/bin/node` dan `/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js` untuk membuktikan absolute path dengan spasi tetap satu argumen.
+Verified against official client documentation on **2026-07-25**; primary
+links are recorded in
+[research-current-sources.md](research-current-sources.md). Recheck syntax for
+new releases because clients evolve.
 
-Jangan menaruh PAT/token pada argumen. Simpan sebagai environment privat klien. stdout server hanya JSON-RPC; diagnostik harus di stderr.
+The easiest safe path is:
+
+```bash
+make config CLIENT=codex
+make config CLIENT=claude
+make config CLIENT=cursor
+```
+
+Run only the command for your client. It prints a template with the current
+absolute Node and repository paths, and never writes configuration or embeds a
+credential.
+
+The static examples below use `/Applications/Node 24/bin/node` and
+`/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js` to prove that
+an absolute path containing spaces remains one argument.
+
+Never place a PAT or token in process arguments. Keep it in the client's
+private environment. Server stdout contains JSON-RPC only; diagnostics belong
+on stderr. Do not enable auto-run for active security tools.
 
 ## Codex CLI
 
-```bash
-codex mcp add caido-agent-kit \
-  --env CAIDO_URL=http://127.0.0.1:8080 \
-  --env CAIDO_AGENT_MODE=read-only \
-  -- "/Applications/Node 24/bin/node" \
-  "/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js"
-codex mcp list
+Codex uses `~/.codex/config.toml` or `.codex/config.toml` in a trusted project:
+
+```toml
+[mcp_servers.caido_agent_kit]
+command = "/Applications/Node 24/bin/node"
+args = ["/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js"]
+env_vars = ["CAIDO_PAT"]
+env = {
+  CAIDO_URL = "http://127.0.0.1:8080",
+  CAIDO_AGENT_MODE = "read-only",
+  CAIDO_REQUIRE_SCOPE = "true",
+  CAIDO_ALLOW_SENSITIVE_HEADERS = "false"
+}
 ```
 
-Persistent config berada di `~/.codex/config.toml` atau `.codex/config.toml` proyek tepercaya; `command` dan setiap `args` harus terpisah.
+Restart Codex, then run `codex mcp list` or use `/mcp` in the TUI.
 
 ## Claude Code
 
-```bash
-claude mcp add --transport stdio caido-agent-kit \
-  --env CAIDO_URL=http://127.0.0.1:8080 \
-  --env CAIDO_AGENT_MODE=read-only \
-  -- "/Applications/Node 24/bin/node" \
-  "/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js"
-claude mcp get caido-agent-kit
-```
-
-Separator `--` wajib sebelum command server. Pilih scope local/project/user secara sengaja.
-
-## Cursor
-
-`.cursor/mcp.json`:
+Place a reviewed configuration in `.mcp.json` at the intended Claude Code
+scope. Keep the credential as an environment reference:
 
 ```json
 {
@@ -44,11 +59,49 @@ Separator `--` wajib sebelum command server. Pilih scope local/project/user seca
       ],
       "env": {
         "CAIDO_URL": "http://127.0.0.1:8080",
-        "CAIDO_AGENT_MODE": "read-only"
+        "CAIDO_AGENT_MODE": "read-only",
+        "CAIDO_REQUIRE_SCOPE": "true",
+        "CAIDO_PAT": "${CAIDO_PAT}"
       }
     }
   }
 }
 ```
 
-Cursor meminta approval tool secara default. Auto-run jangan diaktifkan untuk tool keamanan aktif.
+Restart Claude Code, then run `claude mcp get caido-agent-kit`.
+
+## Cursor
+
+Use `.cursor/mcp.json` in a trusted project:
+
+```json
+{
+  "mcpServers": {
+    "caido-agent-kit": {
+      "command": "/Applications/Node 24/bin/node",
+      "args": [
+        "/Users/operator/Caido Agent Kit/packages/mcp-server/dist/cli.js"
+      ],
+      "env": {
+        "CAIDO_URL": "http://127.0.0.1:8080",
+        "CAIDO_AGENT_MODE": "read-only",
+        "CAIDO_REQUIRE_SCOPE": "true",
+        "CAIDO_PAT": "${env:CAIDO_PAT}"
+      }
+    }
+  }
+}
+```
+
+Cursor asks for tool approval by default. Keep that approval boundary for
+active operations.
+
+## Verification
+
+After restarting the client:
+
+1. Inspect the client's MCP status.
+2. Ask only for `caido_health`.
+3. Confirm the reported mode is `read-only`.
+4. Confirm stdout contains no diagnostic lines.
+5. Continue with the first task in [Getting Started](getting-started.md).

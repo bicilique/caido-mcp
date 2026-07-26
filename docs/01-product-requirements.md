@@ -1,25 +1,32 @@
-# Persyaratan Produk
+# Product Requirements
 
-## Tujuan
+## Purpose
 
-Menyediakan operasi Caido lokal yang dapat diaudit untuk agen AI tanpa memindahkan otorisasi, kredensial, atau keputusan keamanan ke model.
+Provide auditable local Caido operations for AI agents without transferring
+authorization, credentials, or security decisions to the model.
 
-## Pengguna dan Hasil
+## Users and Outcomes
 
-Operator berwenang dapat menelusuri bukti secara read-only, lalu menjalankan satu mutasi aktif yang dibatasi bila diperlukan. Hasil selalu memisahkan observasi, penilaian, evidence ID, dan keterbatasan.
+An authorized operator can inspect bounded evidence in read-only mode, then
+perform one bounded active mutation when necessary. Results separate
+observations, assessments, evidence identifiers, and limitations.
 
-## Persyaratan Fungsional
+## Functional Requirements
 
-- Stdio lokal, registry berskema ketat, dan output terstruktur.
-- Default read-only; active eksplisit; admin tanpa tool destruktif.
-- SDK resmi melalui adapter milik proyek.
-- Skill tunggal dengan progressive disclosure dan eval deterministik.
-- Dukungan Intel macOS dengan Node 24 x64.
+- Local stdio, a strictly schematized registry, and structured results.
+- Read-only by default; explicit active mode; no destructive admin catalog.
+- The official SDK behind a project-owned adapter.
+- One portable Skill with progressive disclosure and deterministic evaluation.
+- Intel macOS support with Node.js 24 x64.
+- Beginner onboarding, diagnostics, safe client templates, and sample tasks.
 
-## Persyaratan Nonfungsional
+## Non-Functional Requirements
 
-Timeout, cancel, rate limit, batas body/batch, redaksi, scope fail-closed, audit bebas rahasia, shutdown bersih, build reproducible, dan gate rilis tanpa network target.
+Timeouts, cancellation, rate limits, body/batch bounds, redaction, fail-closed
+scope enforcement, secret-free audit records, clean shutdown, reproducible
+builds, and release gates that do not require target-network access.
 
-## Di Luar Cakupan
+## Out of Scope
 
-Autonomous exploitation, remote MCP, arbitrary shell/GraphQL, scanning, fuzzing, race, dan penghapusan.
+Autonomous exploitation, remote MCP, arbitrary shell or GraphQL, scanning,
+fuzzing, race tooling, and deletion.

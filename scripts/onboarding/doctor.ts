@@ -57,7 +57,10 @@ export async function runDiagnostics(
   context: DoctorContext,
 ): Promise<DoctorReport> {
   const checks: DiagnosticCheck[] = [];
-  const nodeMajor = Number.parseInt(context.nodeVersion.split(".")[0] ?? "", 10);
+  const nodeMajor = Number.parseInt(
+    context.nodeVersion.split(".")[0] ?? "",
+    10,
+  );
 
   checks.push(
     Number.isInteger(nodeMajor) && nodeMajor >= 24
@@ -142,7 +145,11 @@ export async function runDiagnostics(
 
   checks.push(
     context.credentialPresent
-      ? check("Credential", "pass", "A credential is present in the environment.")
+      ? check(
+          "Credential",
+          "pass",
+          "A credential is present in the environment.",
+        )
       : check(
           "Credential",
           "warning",
@@ -166,7 +173,11 @@ export async function runDiagnostics(
     const reachable = await context.probeCaido(caidoUrl);
     checks.push(
       reachable
-        ? check("Caido connection", "pass", "The local Caido instance responded.")
+        ? check(
+            "Caido connection",
+            "pass",
+            "The local Caido instance responded.",
+          )
         : check(
             "Caido connection",
             "warning",

@@ -1,8 +1,10 @@
-# Panduan macOS Intel
+# Intel macOS Guide
 
-## Persyaratan
+## Requirements
 
-`uname -m` harus menghasilkan `x86_64`; `node -p process.arch` harus `x64`; Node minimal 24. Arsitektur `arm64` ditolak dengan jelas. Rosetta tidak wajib dan tidak diperlukan.
+`uname -m` must print `x86_64`; `node -p process.arch` must print `x64`; Node.js
+must be 24 or newer. An `arm64` runtime is rejected clearly. Rosetta is not
+required.
 
 ```bash
 uname -m
@@ -13,12 +15,20 @@ corepack pnpm build
 bash scripts/verify-macos-intel.sh
 ```
 
-Skrip menghitung manifest paket pnpm yang benar-benar terpasang, termasuk paket scoped, lalu menolak nol manifest serta metadata `cpu`, `os`, atau binary yang arm64-only/tidak kompatibel dengan macOS x64. Skrip juga memeriksa izin executable, startup stdio dari absolute path yang mengandung spasi, seluruh frame JSON-RPC stdout, dan lifecycle shutdown berbatas. Ia tidak memakai `/proc`, tidak mengasumsikan `/opt/homebrew`, dan memanggil child process sebagai array argumen tanpa shell interpolation.
+The verifier counts installed pnpm manifests, including scoped packages, and
+rejects zero manifests or incompatible `cpu`, `os`, and arm64-only binary
+metadata. It checks executable permissions, stdio startup from an absolute path
+containing spaces, every stdout JSON-RPC frame, and bounded shutdown. It does
+not use `/proc`, assume `/opt/homebrew`, or interpolate child commands through a
+shell.
 
-## Path dan Data Pengguna
+## Paths and User Data
 
-Gunakan path absolut dan satu elemen argumen per path. Default data mengikuti Application Support milik user; override `CAIDO_TOKEN_CACHE` dan `CAIDO_AUDIT_LOG` hanya dengan path file yang terkontrol. Cache yang ada harus mode `0600`.
+Use absolute paths and one argument-array element per path. User data defaults
+to Application Support. Override `CAIDO_TOKEN_CACHE` and `CAIDO_AUDIT_LOG` only
+with controlled file paths. An existing credential cache must use mode `0600`.
 
-## Batas Bukti CI
+## CI Evidence Limit
 
-Runner macOS hosted yang tersedia dapat berupa `arm64`; hasil itu tidak membuktikan kompatibilitas Intel. Rilis memerlukan output lokal verifier pada host `x86_64`.
+Available hosted macOS runners may be `arm64`; that result does not prove Intel
+compatibility. A release requires local verifier output from an `x86_64` host.

@@ -13,9 +13,7 @@ if (
   unexpected.length > 0 ||
   !isSupportedClient(client)
 ) {
-  console.error(
-    `Usage: pnpm config:client <${SUPPORTED_CLIENTS.join("|")}>`,
-  );
+  console.error(`Usage: pnpm config:client <${SUPPORTED_CLIENTS.join("|")}>`);
   process.exitCode = 1;
 } else {
   const repositoryRoot = resolve(import.meta.dirname, "..");

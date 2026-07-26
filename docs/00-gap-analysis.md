@@ -1,27 +1,43 @@
-# Analisis Kesenjangan
+# Gap Analysis
 
-Status sumber diverifikasi pada 2026-07-25; rincian dan tautan primer ada di [research-current-sources.md](research-current-sources.md).
+Sources were verified on 2026-07-25. Primary links and details are recorded in
+[Current Source Verification](research-current-sources.md).
 
-## Kemampuan Resmi
+## Official Capabilities
 
-Caido menyediakan SDK TypeScript resmi untuk autentikasi, project, scope, request, finding, workflow, filter, dan Replay. Caido 0.57.1 menyediakan artefak macOS `x86_64`. Agent Skills memberi struktur portabel untuk instruksi progresif.
+Caido provides an official TypeScript SDK for authentication, projects, scopes,
+requests, findings, workflows, filters, and Replay. Caido 0.57.1 provides a
+macOS `x86_64` artifact. Agent Skills provide a portable progressive-instruction
+structure.
 
-## Referensi Komunitas
+## Community References
 
-Server MCP komunitas menunjukkan pola registry dan katalog luas, tetapi menyatukan operasi destruktif/aktif, memakai SDK tidak resmi, dan tidak memenuhi batas scope serta mode proyek ini.
+Community MCP servers demonstrate registry and broad-catalog patterns, but
+combine destructive and active operations, use unofficial SDKs, or do not meet
+this project's scope and mode boundaries.
 
-## Dipakai Secara Konseptual
+## Concepts Adopted
 
-HTTPQL server-side, hasil berbatas, evidence ID, registry kanonik, anotasi MCP, fingerprint respons, serta choke point redaksi dipakai sebagai pola—bukan menyalin implementasi.
+The project adopts server-side HTTPQL, bounded results, evidence identifiers, a
+canonical registry, MCP annotations, response fingerprints, and a centralized
+redaction choke point as concepts. It does not copy community implementations.
 
-## Diimplementasikan
+## Implemented
 
-SDK adapter resmi, stdio lokal, 14 tool baca, enam operasi aktif berbatas, Replay/raw send bergate scope, workflow fail-closed, enam resources, prompt aman, cache owner-only, redaksi/scope/audit terpusat, eval deterministik, dan pengujian mock.
+The release includes an official-SDK adapter, local stdio transport, 14 read
+tools, six bounded active operations, scope-gated Replay/raw send, fail-closed
+workflow execution, resources, safe prompts, owner-only caching, centralized
+redaction/scope/audit controls, deterministic evaluation, and mock testing.
 
-## Ditunda
+## Deferred
 
-Penghapusan, scanning/fuzzing volume tinggi, race tooling, arbitrary GraphQL/plugin RPC, override scope, dan transport remote berada hanya di [roadmap](roadmap.md).
+Deletion, high-volume scanning or fuzzing, race tooling, arbitrary GraphQL or
+plugin RPC, scope override, and remote transport remain only in the
+[roadmap](roadmap.md).
 
-## Risiko
+## Risks
 
-Skema GraphQL Caido tidak dijamin stabil dan versi SDK/instance bisa tidak cocok. Duplikasi dihindari dengan satu adapter, satu registry tool, dan dokumentasi tool yang dihasilkan. Client AI juga dapat mengubah sintaks konfigurasi setelah tanggal verifikasi.
+Caido's GraphQL schema is not guaranteed stable, and SDK/instance versions may
+be incompatible. One adapter, one tool registry, and generated tool
+documentation prevent duplication. AI-client configuration syntax may also
+change after the verification date.

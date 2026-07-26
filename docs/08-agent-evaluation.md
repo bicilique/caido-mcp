@@ -1,12 +1,21 @@
-# Evaluasi Agen
+# Agent Evaluation
 
-Gate rilis memakai evaluator rule-based deterministik, bukan model eksternal. Setiap case berisi prompt, intent, activation, active/confirmation flags, tool wajib/terlarang, safety behavior, dan output fields.
+The release gate uses a deterministic rule-based evaluator, not an external
+model. Each case defines a prompt, intent, activation decision, active and
+confirmation flags, required and forbidden tools, safety behavior, and output
+fields.
 
-Dua puluh skenario mencakup pencarian/detail/diff, IDOR via Replay, mode nonaktif, out-of-scope, permintaan destruktif/credential, prompt injection target, offline/auth/HTTPQL failure, binary besar, evidence finding cukup/tidak cukup, pertanyaan umum, Intel, project switch, dan workflow.
+Scenarios cover search/detail/diff, authorization testing through Replay,
+inactive mode, out-of-scope requests, destructive and credential requests,
+target prompt injection, offline/authentication/HTTPQL failures, large binary
+evidence, sufficient and insufficient finding evidence, general questions,
+Intel setup, project switching, and workflow refusal.
 
 ```bash
 corepack pnpm test:skill
 corepack pnpm eval:skill
 ```
 
-Perubahan rule penting atau contract output harus membuat setidaknya satu case gagal. Model-backed evaluation boleh ditambah kelak tetapi tidak menggantikan gate deterministik.
+An important rule or output-contract change must cause at least one case to
+fail before implementation. Model-backed evaluation may supplement but never
+replace the deterministic gate.

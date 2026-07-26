@@ -1,6 +1,11 @@
-# Strategi Pengujian
+# Testing Strategy
 
-RED–GREEN–REFACTOR berlaku untuk perubahan perilaku. Unit menguji konfigurasi, error/result, auth/cache, redaksi, body, fingerprint, scope, rate, dan audit. Contract menguji registry/schema/resource/prompt/stdio/Intel. Integration menembus runtime dan adapter ke mock Caido localhost. E2E nyata opt-in dan menolak target non-loopback.
+Behavior changes follow RED–GREEN–REFACTOR. Unit tests cover configuration,
+errors/results, authentication/cache, redaction, bodies, fingerprints, scope,
+rate limits, and audit behavior. Contract tests cover registries, schemas,
+resources, prompts, stdio, scripts, and Intel constraints. Integration tests
+exercise the runtime and real adapter against a mock local Caido server.
+Real-Caido E2E is opt-in and rejects non-loopback targets.
 
 ```bash
 corepack pnpm test:unit
@@ -12,4 +17,6 @@ corepack pnpm test:docs
 corepack pnpm coverage
 ```
 
-Threshold umum branch/function/line/statement adalah 80%; Task rilis akhir mencatat bukti aktual. E2E bukan gate default karena membutuhkan Caido dan kredensial operator.
+Global branch, function, line, and statement thresholds are 80%. The release
+checklist records actual evidence. E2E is not a default gate because it requires
+a local Caido instance and an operator credential.
