@@ -8,7 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "pnpm test:unit && pnpm test:contract && pnpm test:integration && pnpm test:skill && pnpm test:docs && pnpm test:e2e",
     "test:unit": "vitest run --project unit",
     "test:contract": "vitest run --project contract",
     "test:integration": "vitest run --project integration",

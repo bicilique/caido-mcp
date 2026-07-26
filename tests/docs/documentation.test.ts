@@ -219,6 +219,16 @@ describe("release documentation", () => {
     for (const name of required) {
       expect(manifest.scripts[name], name).toBeTypeOf("string");
     }
+    for (const suite of [
+      "test:unit",
+      "test:contract",
+      "test:integration",
+      "test:skill",
+      "test:docs",
+      "test:e2e",
+    ]) {
+      expect(manifest.scripts.test, suite).toContain(suite);
+    }
     for (const gate of [
       "format:check",
       "lint",
